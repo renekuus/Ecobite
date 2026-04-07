@@ -8,7 +8,7 @@ export default function LoginPage() {
   const router       = useRouter();
   const searchParams = useSearchParams();
 
-  const [email,    setEmail]    = useState('');
+  const [email,    setEmail]    = useState('admin@ecobitedemo.fi');
   const [password, setPassword] = useState('');
   const [loading,  setLoading]  = useState(false);
   const [error,    setError]    = useState<string | null>(null);
@@ -64,8 +64,7 @@ export default function LoginPage() {
                 onChange={e => setEmail(e.target.value)}
                 required
                 disabled={loading}
-                placeholder="admin@ecobitedemo.fi"
-                className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent disabled:opacity-50 placeholder:text-gray-300"
+                className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent disabled:opacity-50"
               />
             </div>
 
@@ -80,6 +79,7 @@ export default function LoginPage() {
                 autoComplete="current-password"
                 value={password}
                 onChange={e => setPassword(e.target.value)}
+                onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); void handleSubmit(e as unknown as FormEvent); } }}
                 required
                 disabled={loading}
                 className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent disabled:opacity-50"
