@@ -1,6 +1,6 @@
 -- EcoBite Platform v2 — Master Schema Reference
--- This file is a human-readable reference only.
--- Executable migrations live in migrations/ and are the source of truth.
+-- Human-readable consolidated view. Migrations/ are the executable source of truth.
+-- To recreate from scratch: run migrations 001–021 in order.
 --
 -- Prerequisites:
 --   CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
@@ -135,3 +135,51 @@
 -- id, recipient_type[customer|courier|merchant_user], recipient_id,
 -- channel[push|sms|email], template, payload[JSONB],
 -- sent_at, delivered_at, failed_at, created_at
+
+-- ─────────────────────────────────────────────────────────────────────────────
+-- EXTENSIONS & SHARED ENUM TYPES  (001)
+-- ─────────────────────────────────────────────────────────────────────────────
+-- CREATE EXTENSION IF NOT EXISTS "pgcrypto";
+-- CREATE EXTENSION IF NOT EXISTS "pg_trgm";
+-- CREATE EXTENSION IF NOT EXISTS postgis;   -- loaded in 018
+--
+-- CREATE TYPE merchant_group AS ENUM ('qsr','restaurant','darkstore','other');
+-- CREATE TYPE vehicle_type   AS ENUM ('bike','cargo_bike','scooter','walk');
+-- CREATE TYPE order_status   AS ENUM ('placed','confirmed','preparing','ready',
+--   'assigned','picked_up','delivering','delivered','cancelled','failed');
+-- CREATE TYPE trip_status    AS ENUM ('pending','active','completed','cancelled');
+-- CREATE TYPE courier_status AS ENUM ('active','on_shift','inactive','suspended');
+-- CREATE TYPE stop_type      AS ENUM ('pickup','dropoff');
+-- CREATE TYPE actor_type     AS ENUM ('customer','courier','merchant','system');
+-- CREATE TYPE payment_status AS ENUM ('pending','succeeded','failed','refunded');
+-- CREATE TYPE payout_status  AS ENUM ('pending','processing','paid','failed');
+-- CREATE TYPE payout_recipient_type       AS ENUM ('courier','merchant');
+-- CREATE TYPE notification_channel        AS ENUM ('push','sms','email');
+-- CREATE TYPE notification_recipient_type AS ENUM ('customer','courier','merchant_user');
+-- CREATE TYPE zone_type      AS ENUM ('delivery_zone','pricing_zone','surge_zone');
+
+-- ─────────────────────────────────────────────────────────────────────────────
+-- TABLE INDEX
+-- ─────────────────────────────────────────────────────────────────────────────
+-- Migration  Table                  MVP-essential?  Notes
+-- 001        customers              YES
+-- 002        customer_addresses     YES
+-- 003        merchants              YES
+-- 004        merchant_users         YES
+-- 005        products               YES
+-- 006        product_modifiers      YES
+-- 007        couriers               YES
+-- 008        courier_shifts         YES
+-- 009        orders                 YES             Central entity
+-- 010        order_items            YES
+-- 011        trips                  YES
+-- 012        trip_stops             YES
+-- 013        order_events           YES             Audit trail
+-- 014        trip_events            YES             Audit trail
+-- 015        payments               YES
+-- 016        payouts                LATER           Weekly batch job
+-- 017        reviews                LATER           Post-MVP feature
+-- 018        zones                  LATER           Geo-fencing, surge pricing
+-- 019        pricing_rules          LATER           Dynamic pricing
+-- 020        settings               YES             Platform config
+-- 021        notifications          YES
