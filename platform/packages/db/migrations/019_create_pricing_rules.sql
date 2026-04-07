@@ -17,5 +17,4 @@ CREATE TABLE pricing_rules (
 
 CREATE INDEX idx_pricing_rules_zone    ON pricing_rules (zone_id) WHERE zone_id IS NOT NULL;
 -- Efficient lookup for currently-active rules
-CREATE INDEX idx_pricing_rules_current ON pricing_rules (valid_from, valid_to)
-  WHERE valid_to IS NULL OR valid_to > NOW();
+CREATE INDEX idx_pricing_rules_current ON pricing_rules (valid_from, valid_to);
