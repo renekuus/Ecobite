@@ -6,8 +6,16 @@ import { listOrders, getOrderById, cancelOrder, flagOrder, unflagOrder } from '.
 
 // ─── Query schema ─────────────────────────────────────────────────────────────
 
+// Lowercase values match the PostgreSQL order_status enum and what API consumers send.
+// z.nativeEnum(OrderStatus) rejected them because the TS enum uses uppercase values.
+const DB_ORDER_STATUSES = [
+  'placed', 'confirmed', 'preparing', 'ready',
+  'assigned', 'picked_up', 'delivering', 'delivered',
+  'cancelled', 'failed',
+] as const;
+
 const ListOrdersQuery = z.object({
-  status:     z.nativeEnum(OrderStatus).optional(),
+  status:     z.enum(DB_ORDER_STATUSES).optional(),
   merchantId: z.string().uuid().optional(),
   courierId:  z.string().uuid().optional(),
   limit:  z.coerce.number().int().min(1).max(200).default(50),
@@ -73,7 +81,7 @@ export default async function ordersRoutes(fastify: FastifyInstance): Promise<vo
         actor.role === 'courier' ? actor.sub : courierId;
 
       const result = await listOrders({
-        status,
+        status: status as OrderStatus | undefined,
         merchantId: effectiveMerchantId,
         courierId:  effectiveCourierId,
         limit,
