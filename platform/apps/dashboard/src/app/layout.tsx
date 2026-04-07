@@ -10,6 +10,10 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="fi">
+      {/*
+        Nav is a client component that returns null on /login,
+        so the body flex layout gracefully fills full width there.
+      */}
       <body className="flex bg-gray-50 text-gray-900 min-h-screen">
         <Nav />
         <main className="flex-1 overflow-y-auto">

@@ -1,10 +1,8 @@
 // ─── Thin API client ──────────────────────────────────────────────────────────
 // All calls go to the @ecobit/api server.
-// Auth is bearer-token based; token is set via NEXT_PUBLIC_ADMIN_TOKEN.
-//
-// @provisional: replace with a proper auth flow (login page + httpOnly cookie)
-// in a future step. The NEXT_PUBLIC_ prefix makes the token visible in browser
-// JS — acceptable for a local dev internal tool, not for production.
+// Auth: Bearer token from eb_at cookie; auto-refreshes on 401.
+
+import { getAccessToken, refreshTokens, clearTokens } from './auth';
 
 export class ApiError extends Error {
   constructor(public readonly status: number, message: string) {
@@ -15,10 +13,6 @@ export class ApiError extends Error {
 
 function base(): string {
   return (process.env['NEXT_PUBLIC_API_URL'] ?? 'http://localhost:3001').replace(/\/$/, '');
-}
-
-function token(): string {
-  return process.env['NEXT_PUBLIC_ADMIN_TOKEN'] ?? '';
 }
 
 type QueryParams = Record<string, string | number | undefined | null>;
@@ -34,15 +28,32 @@ function buildUrl(path: string, params?: QueryParams): string {
   return url.toString();
 }
 
-/** Perform an authenticated GET and return the parsed JSON body. */
-export async function apiGet<T>(path: string, params?: QueryParams): Promise<T> {
-  const url = buildUrl(path, params);
-  const res = await fetch(url, {
-    headers: { Authorization: `Bearer ${token()}` },
-    // Disable Next.js data cache for all analytics/order data — always fresh
-    cache: 'no-store',
-  });
+// ─── Core fetch with auto-refresh ────────────────────────────────────────────
 
+async function apiFetch(url: string, init: RequestInit, retry = true): Promise<Response> {
+  const at = getAccessToken();
+  const headers = new Headers(init.headers ?? {});
+  if (at) headers.set('Authorization', `Bearer ${at}`);
+
+  const res = await fetch(url, { ...init, headers, cache: 'no-store' });
+
+  // Auto-refresh once on 401, then re-try
+  if (res.status === 401 && retry) {
+    try {
+      const newAt = await refreshTokens();
+      headers.set('Authorization', `Bearer ${newAt}`);
+      return fetch(url, { ...init, headers, cache: 'no-store' });
+    } catch {
+      // Refresh failed — clear tokens and throw so caller can redirect to login
+      clearTokens();
+      throw new ApiError(401, 'Session expired — please log in again');
+    }
+  }
+
+  return res;
+}
+
+async function handleResponse<T>(res: Response, path: string): Promise<T> {
   if (!res.ok) {
     const body = await res.text().catch(() => '');
     let message = `${res.status} ${res.statusText}`;
@@ -52,8 +63,27 @@ export async function apiGet<T>(path: string, params?: QueryParams): Promise<T> 
     } catch { /* keep default */ }
     throw new ApiError(res.status, `[${path}] ${message}`);
   }
-
   return res.json() as Promise<T>;
+}
+
+// ─── Public helpers ───────────────────────────────────────────────────────────
+
+/** Perform an authenticated GET and return the parsed JSON body. */
+export async function apiGet<T>(path: string, params?: QueryParams): Promise<T> {
+  const url = buildUrl(path, params);
+  const res = await apiFetch(url, { method: 'GET' });
+  return handleResponse<T>(res, path);
+}
+
+/** Perform an authenticated POST and return the parsed JSON body. */
+export async function apiPost<T>(path: string, body?: unknown): Promise<T> {
+  const url = buildUrl(path);
+  const res = await apiFetch(url, {
+    method:  'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body:    body !== undefined ? JSON.stringify(body) : undefined,
+  });
+  return handleResponse<T>(res, path);
 }
 
 // ─── Date helpers (shared across pages) ──────────────────────────────────────

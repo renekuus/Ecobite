@@ -45,6 +45,19 @@ export interface DeliverySnapshot {
   lng:        number;
 }
 
+export interface OrderMerchant {
+  id:    string;
+  name:  string;
+  group: string;
+}
+
+export interface OrderCustomer {
+  id:    string;
+  name:  string;
+  email: string;
+  phone: string;
+}
+
 export interface OrderRow {
   id:                        string;
   order_number:              string;
@@ -68,6 +81,9 @@ export interface OrderRow {
   actual_delivered_at:       string | null;
   created_at:                string;
   updated_at:                string;
+  // Embedded via JOIN
+  merchant:  OrderMerchant | null;
+  customer:  OrderCustomer | null;
 }
 
 export interface OrdersResponse {
@@ -75,6 +91,59 @@ export interface OrdersResponse {
   total:  number;
   limit:  number;
   offset: number;
+}
+
+// ─── Live ─────────────────────────────────────────────────────────────────────
+
+export interface LiveOrder {
+  id:                        string;
+  order_number:              string;
+  status:                    string;
+  urgency:                   string;
+  merchant_id:               string;
+  merchant_name:             string | null;
+  merchant_group:            string;
+  customer_id:               string;
+  customer_name:             string | null;
+  courier_id:                string | null;
+  delivery_address_snapshot: DeliverySnapshot;
+  subtotal_eur:              string;
+  estimated_delivery_at:     string | null;
+  created_at:                string;
+}
+
+export interface LiveCourier {
+  id:              string;
+  name:            string;
+  status:          string;
+  vehicle_type:    string;
+  active_trips:    number;
+  assigned_orders: number;
+}
+
+export interface LiveTrip {
+  id:           string;
+  courier_id:   string;
+  courier_name: string | null;
+  status:       string;
+  order_count:  number;
+  created_at:   string;
+  started_at:   string | null;
+}
+
+export interface LiveSummary {
+  totalActive:   number;
+  totalCouriers: number;
+  onShift:       number;
+  activeTrips:   number;
+}
+
+export interface LiveResponse {
+  activeOrders: LiveOrder[];
+  couriers:     LiveCourier[];
+  activeTrips:  LiveTrip[];
+  updatedAt:    string;
+  summary:      LiveSummary;
 }
 
 // ─── Health ───────────────────────────────────────────────────────────────────

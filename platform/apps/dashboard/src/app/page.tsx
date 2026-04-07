@@ -73,7 +73,7 @@ export default function HomePage() {
           <p className="mt-2 text-xs text-red-500">
             Check that the API is running on{' '}
             <code className="font-mono">{process.env['NEXT_PUBLIC_API_URL'] ?? 'http://localhost:3001'}</code>
-            {' '}and that <code className="font-mono">NEXT_PUBLIC_ADMIN_TOKEN</code> is set.
+            {' '}and that you are signed in.
           </p>
         </div>
       )}
@@ -106,14 +106,22 @@ export default function HomePage() {
       )}
 
       {/* ── Quick links ── */}
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+        <Link
+          href="/live"
+          className="group bg-white border border-gray-200 rounded-xl p-5 hover:border-green-400 transition-colors"
+        >
+          <div className="text-2xl mb-2">🔴</div>
+          <p className="font-semibold text-gray-800 group-hover:text-green-700">Live Ops</p>
+          <p className="text-xs text-gray-500 mt-1">Active orders, couriers online and trip status in real time</p>
+        </Link>
         <Link
           href="/orders"
           className="group bg-white border border-gray-200 rounded-xl p-5 hover:border-green-400 transition-colors"
         >
           <div className="text-2xl mb-2">📦</div>
           <p className="font-semibold text-gray-800 group-hover:text-green-700">Orders</p>
-          <p className="text-xs text-gray-500 mt-1">Browse and filter all orders from the seeded database</p>
+          <p className="text-xs text-gray-500 mt-1">Browse, filter, cancel and flag orders</p>
         </Link>
         <Link
           href="/mix"
@@ -123,15 +131,6 @@ export default function HomePage() {
           <p className="font-semibold text-gray-800 group-hover:text-green-700">Mix &amp; Migration</p>
           <p className="text-xs text-gray-500 mt-1">QSR → Darkstore shift over time, backed by real order data</p>
         </Link>
-      </div>
-
-      {/* ── Provisional notice ── */}
-      <div className="rounded-xl border border-amber-200 bg-amber-50 px-5 py-4 text-xs text-amber-700">
-        <p className="font-semibold mb-1">⚠ Provisional auth</p>
-        <p>
-          This dashboard uses a static bearer token (<code className="font-mono">NEXT_PUBLIC_ADMIN_TOKEN</code>).
-          A login page and session management will be added in a future step.
-        </p>
       </div>
 
     </div>

@@ -6,7 +6,10 @@ import { getPool, closePool } from './lib/db.js';
 import { getRedis, closeRedis } from './lib/redis.js';
 import authRoutes      from './routes/auth.js';
 import ordersRoutes    from './routes/orders.js';
+import merchantsRoutes from './routes/merchants.js';
+import customersRoutes from './routes/customers.js';
 import analyticsRoutes from './routes/analytics.js';
+import adminRoutes     from './routes/admin.js';
 
 // ─── Bootstrap ────────────────────────────────────────────────────────────────
 
@@ -54,7 +57,10 @@ async function bootstrap(): Promise<void> {
     async (v1) => {
       await v1.register(authRoutes,      { prefix: '/auth' });
       await v1.register(ordersRoutes,    { prefix: '/orders' });
+      await v1.register(merchantsRoutes, { prefix: '/merchants' });
+      await v1.register(customersRoutes, { prefix: '/customers' });
       await v1.register(analyticsRoutes, { prefix: '/analytics' });
+      await v1.register(adminRoutes,     { prefix: '/admin' });
     },
     { prefix: '/api/v1' },
   );

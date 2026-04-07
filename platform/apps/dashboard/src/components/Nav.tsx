@@ -1,16 +1,27 @@
 'use client';
 
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
+import { logout } from '@/lib/auth';
 
 const LINKS = [
   { href: '/',       label: 'Dashboard',         icon: '📊' },
+  { href: '/live',   label: 'Live Ops',           icon: '🔴' },
   { href: '/orders', label: 'Orders',             icon: '📦' },
   { href: '/mix',    label: 'Mix & Migration',    icon: '📈' },
 ];
 
 export default function Nav() {
   const pathname = usePathname();
+  const router   = useRouter();
+
+  // Hide nav entirely on login page
+  if (pathname === '/login') return null;
+
+  async function handleLogout() {
+    await logout();
+    router.push('/login');
+  }
 
   return (
     <aside className="w-56 shrink-0 bg-white border-r border-gray-200 flex flex-col h-screen sticky top-0">
@@ -44,13 +55,16 @@ export default function Nav() {
       </nav>
 
       {/* Footer */}
-      <div className="p-4 border-t border-gray-100">
+      <div className="p-4 border-t border-gray-100 flex flex-col gap-2">
         <p className="text-[10px] text-gray-400 leading-relaxed">
           API: {process.env['NEXT_PUBLIC_API_URL'] ?? 'localhost:3001'}
         </p>
-        <p className="text-[10px] text-gray-300 mt-0.5">
-          Auth: {process.env['NEXT_PUBLIC_ADMIN_TOKEN'] ? '✓ token set' : '⚠ no token'}
-        </p>
+        <button
+          onClick={handleLogout}
+          className="flex items-center gap-2 text-[11px] text-gray-400 hover:text-gray-600 transition-colors text-left"
+        >
+          <span>↪</span> Sign out
+        </button>
       </div>
     </aside>
   );

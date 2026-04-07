@@ -1,7 +1,6 @@
 # @ecobit/dashboard — Ops Dashboard
 
 Next.js 14 thin client consuming the `@ecobit/api` server.
-Replaces the simulation (`/simulation/dashboard/index.html`) with real data.
 
 ---
 
@@ -17,41 +16,35 @@ Replaces the simulation (`/simulation/dashboard/index.html`) with real data.
 ```bash
 # from repo root
 pnpm install
-
-# or from this package
-cd platform/apps/dashboard
-pnpm install
 ```
 
-### 2 — Get an admin token
-
-```bash
-curl -s -X POST http://localhost:3001/api/v1/auth/login \
-  -H "Content-Type: application/json" \
-  -d '{"email":"admin@ecobitedemo.fi","password":"devadminpassword"}' \
-  | jq -r .accessToken
-```
-
-Copy the token value.
-
-### 3 — Configure env
+### 2 — Configure env
 
 ```bash
 cp .env.local.example .env.local
 ```
 
-Edit `.env.local`:
-```
-NEXT_PUBLIC_API_URL=http://localhost:3001
-NEXT_PUBLIC_ADMIN_TOKEN=<paste token here>
-```
+Edit `.env.local` — only `NEXT_PUBLIC_API_URL` is needed (defaults to `http://localhost:3001`).
 
-### 4 — Start dashboard
+### 3 — Start dashboard
 
 ```bash
+cd platform/apps/dashboard
 pnpm dev
 # → http://localhost:3002
 ```
+
+### 4 — Sign in
+
+Open http://localhost:3002 — you'll be redirected to `/login`.
+
+Use the admin credentials set in the API `.env`:
+```
+Email:    admin@ecobitedemo.fi
+Password: devadminpassword
+```
+
+Tokens are stored in `eb_at` / `eb_rt` cookies and auto-refreshed on expiry.
 
 ---
 
@@ -60,7 +53,8 @@ pnpm dev
 | Route    | Description |
 |----------|-------------|
 | `/`      | Dashboard home — 30-day KPI cards + API health status |
-| `/orders`| Orders table with status filter + pagination + expand row |
+| `/live`  | Live Operations — active orders, couriers online, active trips |
+| `/orders`| Orders table with status filter + pagination + expand row + cancel/flag actions |
 | `/mix`   | Mix & Migration — stacked bar chart + period picker + segment table |
 
 ---
@@ -78,12 +72,22 @@ pnpm dev
 
 ---
 
-## What is provisional
+## Auth flow
 
-| Item | Notes |
-|------|-------|
-| Auth | Static `NEXT_PUBLIC_ADMIN_TOKEN` env var — add login page + cookie session in a future step |
-| Merchant names | Orders table shows `merchant_group` (QSR/Restaurant/…) not merchant name — needs merchants endpoint |
-| Customer names | Shows UUID — needs customers endpoint |
-| No SSR | All pages are client components (`"use client"`) — can be converted to RSC + streaming later |
-| Token expiry | Access tokens expire in 15 min by default — restart dev server or get a new token |
+| Mechanism | Detail |
+|-----------|--------|
+| Login     | POST `/api/v1/auth/login` → receives access + refresh tokens |
+| Storage   | Non-httpOnly cookies `eb_at` (14 min) and `eb_rt` (29 days) |
+| Middleware| `src/middleware.ts` — redirects to `/login` if `eb_at` absent |
+| Refresh   | Auto-triggered on 401 in `api.ts`, then request retried once |
+| Logout    | Clears cookies + calls `POST /api/v1/auth/logout` (best-effort) |
+
+---
+
+## Operator actions (Orders page)
+
+| Action | Route | Behaviour |
+|--------|-------|-----------|
+| 🚩 Flag   | `POST /api/v1/orders/:id/flag`   | Sets `urgency=red`, appends note |
+| 🚩 Unflag | `POST /api/v1/orders/:id/unflag` | Resets `urgency=green` |
+| ✕ Cancel  | `POST /api/v1/orders/:id/cancel` | Transitions order to `cancelled`, inserts order_event |
