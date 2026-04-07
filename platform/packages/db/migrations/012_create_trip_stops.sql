@@ -1,0 +1,1 @@
+-- TODO: implement migration 012_create_trip_stops

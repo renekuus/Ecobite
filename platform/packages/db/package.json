@@ -1,0 +1,21 @@
+{
+  "name": "@ecobit/db",
+  "version": "0.1.0",
+  "private": true,
+  "description": "EcoBite database — PostgreSQL schema, migrations, seeds",
+  "scripts": {
+    "migrate": "node-pg-migrate up",
+    "migrate:down": "node-pg-migrate down",
+    "migrate:create": "node-pg-migrate create",
+    "seed": "tsx seeds/index.ts"
+  },
+  "dependencies": {
+    "pg": "^8.0.0",
+    "node-pg-migrate": "^7.0.0"
+  },
+  "devDependencies": {
+    "@types/pg": "^8.0.0",
+    "tsx": "^4.0.0",
+    "typescript": "^5.4.0"
+  }
+}

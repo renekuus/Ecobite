@@ -1,0 +1,2977 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>EcoBite — Operations Center</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;}
+:root{
+  --green:#52b043;--green-dark:#3d8a30;--green-light:#e8f5e4;
+  --dark:#1a2e1c;--bg:#f4f7f4;--card:#fff;--border:#dde8db;
+  --text:#253226;--muted:#6b7d6c;--muted2:#9aaa9b;
+  --yellow:#f59e0b;--yellow-bg:#fffbeb;--yellow-border:#fde68a;
+  --red:#dc2626;--red-bg:#fef2f2;--red-border:#fecaca;
+  --blue:#0ea5e9;
+}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);height:100vh;display:flex;flex-direction:column;overflow:hidden;}
+/* HEADER */
+header{background:var(--dark);color:#fff;height:54px;display:flex;align-items:center;padding:0 20px;flex-shrink:0;z-index:2000;}
+.logo{font-size:21px;font-weight:800;color:#fff;margin-right:28px;letter-spacing:-.5px;}
+.logo em{color:var(--green);font-style:normal;}
+.tab-btn{background:none;border:none;color:rgba(255,255,255,.55);font-size:13px;font-weight:500;padding:6px 14px;border-radius:6px;cursor:pointer;transition:all .18s;margin-right:2px;position:relative;}
+.tab-btn:hover{color:#fff;background:rgba(255,255,255,.1);}
+.tab-btn.active{color:var(--green);background:rgba(82,176,67,.2);}
+.tab-alert-dot{position:absolute;top:4px;right:6px;width:7px;height:7px;background:var(--red);border-radius:50%;display:none;}
+.tab-alert-dot.show{display:block;}
+.header-right{margin-left:auto;display:flex;align-items:center;gap:14px;}
+.live-pill{background:var(--green);color:#fff;font-size:11px;font-weight:700;padding:3px 9px;border-radius:20px;display:flex;align-items:center;gap:5px;}
+.live-dot{width:6px;height:6px;background:#fff;border-radius:50%;animation:blink 1.4s infinite;}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.25}}
+#clock{color:rgba(255,255,255,.5);font-size:13px;font-family:monospace;}
+/* STATS BAR */
+.stats-bar{background:var(--card);border-bottom:1px solid var(--border);display:flex;flex-shrink:0;}
+.stat{padding:10px 18px;border-right:1px solid var(--border);flex:1;min-width:0;}
+.stat:last-child{border-right:none;}
+.stat-lbl{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;margin-bottom:3px;}
+.stat-val{font-size:21px;font-weight:700;line-height:1;}
+.stat-val.g{color:var(--green);}
+.stat-sub{font-size:11px;color:var(--muted2);margin-top:2px;}
+/* TABS */
+.tab-pane{display:none;flex:1;overflow:hidden;flex-direction:column;}
+.tab-pane.active{display:flex;}
+/* BADGES */
+.sbadge{font-size:10px;font-weight:700;padding:2px 7px;border-radius:10px;text-transform:uppercase;letter-spacing:.3px;white-space:nowrap;}
+.s-PLACED{background:#e9ecef;color:#5a6268;}
+.s-CONFIRMED{background:#d0e4ff;color:#0850c7;}
+.s-PREPARING{background:#fff3cd;color:#856404;}
+.s-PICKED_UP{background:#e8d5fc;color:#6929c4;}
+.s-DELIVERING{background:#c8f0fa;color:#065a6f;}
+.s-DELIVERED{background:#d1f0d8;color:#135e27;}
+.s-CANCELLED{background:#fee2e2;color:#991b1b;}
+.utag{font-size:10px;font-weight:800;padding:2px 7px;border-radius:10px;letter-spacing:.3px;white-space:nowrap;}
+.utag-green,.utag-resolved,.utag-paused{background:#d1f0d8;color:#135e27;}
+.utag-yellow{background:#fef3c7;color:#92400e;}
+.utag-red{background:#fee2e2;color:#991b1b;animation:pulsered 1.5s infinite;}
+.utag-cancelled{background:#e9ecef;color:#5a6268;}
+@keyframes pulsered{0%,100%{opacity:1}50%{opacity:.55}}
+/* URGENCY BORDERS */
+.urg-red{background:var(--red-bg)!important;border-left:3px solid var(--red);}
+.urg-yellow{background:var(--yellow-bg)!important;border-left:3px solid var(--yellow);}
+.urg-green{border-left:3px solid var(--green);}
+.urg-paused{background:#eff6ff!important;border-left:3px solid #93c5fd;}
+.urg-resolved{background:#f0fdf4!important;border-left:3px solid var(--green);}
+.urg-cancelled{background:#f9fafb!important;border-left:3px solid #adb5bd;}
+.badge{background:var(--green);color:#fff;font-size:11px;font-weight:700;padding:2px 8px;border-radius:12px;}
+/* DASHBOARD */
+.dash-body{display:flex;flex:1;overflow:hidden;}
+.order-panel{width:295px;background:var(--card);border-right:1px solid var(--border);display:flex;flex-direction:column;flex-shrink:0;overflow:hidden;}
+.panel-head{padding:12px 14px;border-bottom:1px solid var(--border);font-size:13px;font-weight:600;display:flex;align-items:center;justify-content:space-between;}
+.order-feed{flex:1;overflow-y:auto;padding:8px;display:flex;flex-direction:column;gap:5px;}
+.order-feed::-webkit-scrollbar,.om-list::-webkit-scrollbar,.courier-table::-webkit-scrollbar,.detail-scroll::-webkit-scrollbar,.admin-content::-webkit-scrollbar{width:3px;}
+.order-feed::-webkit-scrollbar-thumb,.om-list::-webkit-scrollbar-thumb,.courier-table::-webkit-scrollbar-thumb,.detail-scroll::-webkit-scrollbar-thumb,.admin-content::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px;}
+.ocard{background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:9px 11px;cursor:pointer;transition:border .2s;}
+.ocard:hover{border-color:var(--green);}
+.ocard.fresh{animation:sldin .35s ease;}
+@keyframes sldin{from{opacity:0;transform:translateY(-8px)}to{opacity:1;transform:translateY(0)}}
+.oc-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:3px;}
+.oc-id{font-size:11px;font-weight:700;color:var(--green);}
+.oc-time{font-size:11px;color:var(--muted2);}
+.oc-store{font-size:13px;font-weight:600;margin-bottom:2px;}
+.oc-addr{font-size:11px;color:var(--muted);margin-bottom:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.oc-bot{display:flex;justify-content:space-between;align-items:center;gap:4px;margin-top:4px;flex-wrap:wrap;}
+.oc-val{font-size:13px;font-weight:700;}
+.oc-eta{font-size:10px;color:var(--muted2);margin-top:3px;}
+.map-wrap,.fleet-map-wrap{flex:1;position:relative;}
+#map,#fleet-map{width:100%;height:100%;}
+.map-overlay{position:absolute;bottom:20px;right:16px;background:rgba(255,255,255,.95);border:1px solid var(--border);border-radius:10px;padding:12px 14px;z-index:1000;box-shadow:0 4px 16px rgba(0,0,0,.1);}
+.leg-title{font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;margin-bottom:8px;}
+.leg-row{display:flex;align-items:center;gap:8px;font-size:12px;margin-bottom:5px;}
+.leg-dot{width:11px;height:11px;border-radius:50%;flex-shrink:0;}
+.leg-sq{width:16px;height:16px;border-radius:4px;flex-shrink:0;border:2px solid var(--green);background:#fff;font-size:10px;display:flex;align-items:center;justify-content:center;}
+/* FLEET */
+.fleet-body{display:flex;flex:1;overflow:hidden;}
+.fleet-left{width:480px;display:flex;flex-direction:column;background:var(--card);border-right:1px solid var(--border);flex-shrink:0;overflow:hidden;}
+.section-head{padding:12px 16px;border-bottom:1px solid var(--border);font-size:13px;font-weight:600;display:flex;align-items:center;gap:8px;}
+.fleet-stats{display:flex;border-bottom:1px solid var(--border);flex-shrink:0;}
+.fstat{flex:1;padding:10px 12px;border-right:1px solid var(--border);text-align:center;}
+.fstat:last-child{border-right:none;}
+.fstat-val{font-size:20px;font-weight:700;}
+.fstat-lbl{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;}
+.courier-table{flex:1;overflow-y:auto;}
+table{width:100%;border-collapse:collapse;font-size:12.5px;}
+thead th{background:#f8faf7;padding:8px 10px;text-align:left;font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;border-bottom:1px solid var(--border);position:sticky;top:0;z-index:1;}
+tbody td{padding:7px 10px;border-bottom:1px solid var(--border);}
+tbody tr:hover{background:#f8faf7;}
+.c-name{font-weight:600;}
+.c-status{display:inline-flex;align-items:center;font-size:11px;font-weight:600;padding:2px 8px;border-radius:10px;}
+.cs-delivering{background:#c8f0fa;color:#065a6f;}
+.cs-available{background:#d1f0d8;color:#135e27;}
+.cs-idle{background:#e9ecef;color:#5a6268;}
+.fleet-right{width:460px;display:flex;flex-direction:column;background:var(--card);border-right:1px solid var(--border);flex-shrink:0;overflow:hidden;}
+.fleet-right-head{padding:9px 13px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:5px;flex-wrap:wrap;flex-shrink:0;}
+.fleet-period-btn{font-size:11px;padding:3px 9px;border:1px solid var(--border);border-radius:12px;background:transparent;cursor:pointer;color:var(--muted);}
+.fleet-period-btn.active{background:var(--green);color:#fff;border-color:var(--green);}
+.fleet-stats-tbl{flex:1;overflow-y:auto;}
+.fleet-stats-tbl th{cursor:pointer;user-select:none;white-space:nowrap;}
+.fleet-stats-tbl th:hover{color:var(--fg) !important;}
+/* MERCHANT DETAIL */
+.mdetail-tab{background:none;border:none;padding:9px 16px;font-size:13px;font-weight:500;color:var(--muted);cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px;}
+.mdetail-tab.active{color:var(--green);font-weight:700;border-bottom-color:var(--green);}
+.mdetail-tab:hover{color:var(--fg);}
+.mf-period-btn{font-size:11px;padding:3px 10px;border:1px solid var(--border);border-radius:12px;background:transparent;cursor:pointer;color:var(--muted);}
+.mf-period-btn.active{background:var(--green);color:#fff;border-color:var(--green);}
+/* ORDER MANAGEMENT */
+.om-body{display:flex;flex:1;overflow:hidden;}
+.om-list-panel{width:400px;display:flex;flex-direction:column;background:var(--card);border-right:1px solid var(--border);flex-shrink:0;overflow:hidden;}
+.om-filters{padding:8px 10px;border-bottom:1px solid var(--border);display:flex;gap:5px;flex-wrap:wrap;}
+.filter-btn{background:var(--bg);border:1px solid var(--border);border-radius:20px;padding:3px 11px;font-size:11px;cursor:pointer;font-weight:500;transition:all .15s;}
+.filter-btn.active{background:var(--green);color:#fff;border-color:var(--green);}
+.filter-btn.red.active{background:var(--red);border-color:var(--red);}
+.filter-btn.yellow.active{background:var(--yellow);border-color:var(--yellow);color:#fff;}
+.om-stats-row{display:flex;border-bottom:1px solid var(--border);flex-shrink:0;}
+.om-stat{flex:1;padding:7px 8px;text-align:center;border-right:1px solid var(--border);}
+.om-stat:last-child{border-right:none;}
+.om-stat-val{font-size:17px;font-weight:700;}
+.om-stat-lbl{font-size:9px;color:var(--muted);text-transform:uppercase;}
+.om-list{flex:1;overflow-y:auto;}
+.om-card{padding:9px 11px;border-bottom:1px solid var(--border);cursor:pointer;transition:background .15s;}
+.om-card:hover{filter:brightness(.97);}
+.om-card.selected{outline:2px solid var(--green);outline-offset:-2px;}
+.om-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:3px;}
+.om-id{font-size:11.5px;font-weight:800;color:var(--green);}
+.om-store{font-size:13px;font-weight:600;margin-bottom:2px;}
+.om-meta{font-size:10.5px;color:var(--muted);display:flex;gap:8px;margin-bottom:4px;flex-wrap:wrap;}
+.om-sla-mini{display:flex;gap:4px;}
+.sla-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0;}
+.sla-green{background:var(--green);}
+.sla-yellow{background:var(--yellow);}
+.sla-red{background:var(--red);}
+.sla-gray{background:#adb5bd;}
+/* ORDER DETAIL */
+.om-detail{flex:1;display:flex;flex-direction:column;overflow:hidden;background:var(--bg);}
+.detail-empty{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;color:var(--muted2);gap:8px;}
+.detail-scroll{flex:1;overflow-y:auto;padding:16px;}
+.detail-header{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:14px 18px;margin-bottom:12px;display:flex;justify-content:space-between;align-items:flex-start;gap:12px;}
+.detail-title{font-size:17px;font-weight:800;margin-bottom:4px;}
+.detail-sub{font-size:12px;color:var(--muted);line-height:1.6;}
+.detail-val{font-size:19px;font-weight:800;color:var(--green);}
+.detail-section{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:13px 16px;margin-bottom:12px;}
+.ds-head{font-size:11px;font-weight:700;margin-bottom:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;}
+.stage-card{border:1px solid var(--border);border-radius:8px;padding:11px 13px;margin-bottom:8px;}
+.stage-card.urg-yellow{border-color:var(--yellow-border);background:var(--yellow-bg);}
+.stage-card.urg-red{border-color:var(--red-border);background:var(--red-bg);}
+.stage-name{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);margin-bottom:7px;}
+.stage-grid{display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:8px;}
+.stage-cell{text-align:center;}
+.sc-lbl{font-size:9px;color:var(--muted2);text-transform:uppercase;letter-spacing:.4px;margin-bottom:2px;}
+.sc-val{font-size:14px;font-weight:700;}
+.sc-val.delay-ok{color:var(--green);}
+.sc-val.delay-warn{color:var(--yellow);}
+.sc-val.delay-crit{color:var(--red);}
+.sc-sub{font-size:9.5px;color:var(--muted2);margin-top:1px;}
+.stage-bar{height:5px;background:#e5e7eb;border-radius:3px;margin-top:8px;overflow:hidden;}
+.stage-bar-fill{height:100%;border-radius:3px;transition:width 1s ease;}
+.tl-item{display:flex;align-items:flex-start;gap:9px;padding:5px 0;border-bottom:1px solid var(--border);}
+.tl-item:last-child{border-bottom:none;}
+.tl-dot{width:9px;height:9px;border-radius:50%;background:var(--green);flex-shrink:0;margin-top:3px;}
+.tl-dot.current{background:var(--blue);box-shadow:0 0 0 3px rgba(14,165,233,.2);}
+.tl-status{font-size:12px;font-weight:600;}
+.tl-time{font-size:10.5px;color:var(--muted2);}
+/* ACTION BUTTONS */
+.action-bar{display:flex;flex-wrap:wrap;gap:7px;margin-bottom:12px;}
+.action-btn{padding:8px 13px;border-radius:8px;border:none;font-size:12px;font-weight:600;cursor:pointer;transition:all .2s;display:flex;align-items:center;gap:5px;}
+.action-btn:hover{filter:brightness(.9);}
+.btn-call{background:#e0f2fe;color:#0369a1;border:1px solid #bae6fd;}
+.btn-solved{background:#d1f0d8;color:#135e27;border:1px solid #a7f3d0;}
+.btn-cancel{background:#fee2e2;color:#991b1b;border:1px solid #fecaca;}
+.btn-pause{background:#e0e7ff;color:#3730a3;border:1px solid #c7d2fe;}
+.resolution-box{background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:10px 14px;margin-bottom:12px;font-size:12.5px;}
+.paused-box{background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;padding:10px 14px;margin-bottom:12px;font-size:12.5px;}
+/* ADMIN */
+.admin-body{flex:1;overflow:hidden;display:flex;flex-direction:column;}
+.admin-tabs{background:var(--card);border-bottom:1px solid var(--border);padding:0 20px;display:flex;gap:2px;flex-shrink:0;}
+.atab{background:none;border:none;padding:10px 16px;font-size:13px;font-weight:500;color:var(--muted);cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px;transition:all .15s;}
+.atab.active{color:var(--green);border-bottom-color:var(--green);font-weight:600;}
+.admin-content{flex:1;overflow-y:auto;padding:18px;}
+.admin-pane{display:none;}
+.admin-pane.active{display:block;}
+.admin-grid-4{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:18px;}
+.admin-grid-6{display:grid;grid-template-columns:repeat(6,1fr);gap:10px;margin-bottom:18px;}
+.astat-card{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:14px 16px;}
+.astat-lbl{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px;}
+.astat-val{font-size:24px;font-weight:700;}
+.astat-val.g{color:var(--green);}
+.astat-val.r{color:var(--red);}
+.astat-sub{font-size:11px;color:var(--muted2);margin-top:2px;}
+.table-card{background:var(--card);border:1px solid var(--border);border-radius:10px;overflow:hidden;margin-bottom:18px;}
+.table-card-head{padding:11px 16px;border-bottom:1px solid var(--border);font-size:13px;font-weight:600;display:flex;justify-content:space-between;align-items:center;}
+.tcard-table{width:100%;border-collapse:collapse;font-size:12px;}
+.tcard-table th{background:#f8faf7;padding:7px 12px;text-align:left;font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;border-bottom:1px solid var(--border);}
+.tcard-table td{padding:8px 12px;border-bottom:1px solid var(--border);}
+.tcard-table tr:last-child td{border-bottom:none;}
+.tcard-table tr:hover td{background:#f8faf7;}
+.tcard-table tfoot td{background:#f8faf7;font-weight:700;border-top:2px solid var(--border);}
+.mg{display:inline-block;font-size:10.5px;padding:2px 7px;border-radius:10px;font-weight:600;}
+.mg-restaurant{background:#fff3cd;color:#856404;}
+.mg-grocery{background:#d0e4ff;color:#0850c7;}
+.mg-cafe{background:#e8d5fc;color:#6929c4;}
+.mg-darkstore{background:#1a2e1c;color:#fff;}
+.mg-qsr{background:#fee2e2;color:#991b1b;}
+.mg-other{background:#d0e4ff;color:#0850c7;}
+/* FINANCIALS VIEW TOGGLE */
+.fin-view-row{display:flex;align-items:center;gap:6px;margin-bottom:12px;flex-wrap:wrap;}
+.fin-view-lbl{font-size:11px;color:var(--muted);font-weight:600;margin-right:4px;}
+.fin-view-btn{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:4px 12px;font-size:12px;cursor:pointer;font-weight:500;transition:all .15s;}
+.fin-view-btn.active{background:var(--green);color:#fff;border-color:var(--green);}
+.fin-search{border:1px solid var(--border);border-radius:8px;padding:5px 10px;font-size:12px;font-family:inherit;background:var(--card);width:200px;margin-left:auto;}
+/* FLEET EFFICIENCY */
+.fleet-eff-section{background:var(--card);border:1px solid var(--border);border-radius:10px;overflow:hidden;margin-bottom:18px;}
+.fleet-eff-head{padding:11px 16px;border-bottom:1px solid var(--border);font-size:13px;font-weight:600;display:flex;justify-content:space-between;align-items:center;}
+.fleet-eff-stats{display:grid;grid-template-columns:repeat(4,1fr);border-bottom:1px solid var(--border);}
+.fes{padding:10px 14px;border-right:1px solid var(--border);text-align:center;}
+.fes:last-child{border-right:none;}
+.fes-val{font-size:20px;font-weight:700;}
+.fes-lbl{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;}
+.trip-row{cursor:pointer;transition:background .15s;}
+.trip-row:hover td{background:#f0f9ff!important;}
+.trip-row.expanded td{background:#f0f9ff;}
+.trip-expand{display:none;background:#f8faf7;}
+.trip-expand.open{display:table-row-group;}
+.trip-expand td{padding:6px 12px 6px 28px;border-bottom:1px solid var(--border);font-size:11.5px;}
+.ao-expand-row{padding:8px 12px 8px 24px;background:#f8faf7;border-bottom:1px solid var(--border);font-size:11.5px;line-height:1.7;}
+.profit-pos{color:var(--green);font-weight:700;}
+.profit-neg{color:var(--red);font-weight:700;}
+/* FINANCIALS */
+.fin-period{display:flex;align-items:center;gap:8px;margin-bottom:16px;flex-wrap:wrap;}
+.period-btn{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:6px 14px;font-size:12.5px;cursor:pointer;font-weight:500;transition:all .15s;}
+.period-btn.active{background:var(--green);color:#fff;border-color:var(--green);}
+.fin-date-input{border:1px solid var(--border);border-radius:8px;padding:5px 10px;font-size:12px;font-family:inherit;background:var(--card);}
+.fin-apply{background:var(--green);color:#fff;border:none;border-radius:8px;padding:6px 14px;font-size:12.5px;cursor:pointer;font-weight:600;}
+.chart-wrap{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:16px;margin-bottom:18px;}
+.chart-title{font-size:13px;font-weight:600;margin-bottom:14px;}
+.bar-chart{display:flex;align-items:flex-end;gap:3px;height:120px;overflow-x:auto;padding-bottom:4px;}
+.bar-chart::-webkit-scrollbar{height:3px;}
+.bar-chart::-webkit-scrollbar-thumb{background:var(--border);}
+.chart-bar-wrap{display:flex;flex-direction:column;align-items:center;min-width:26px;flex:1;}
+.chart-bar{width:100%;background:var(--green);border-radius:3px 3px 0 0;transition:height .5s;position:relative;}
+.chart-bar.neg{background:var(--red);}
+.chart-bar:hover::after{content:attr(data-tip);position:absolute;bottom:calc(100% + 4px);left:50%;transform:translateX(-50%);background:var(--dark);color:#fff;font-size:10px;padding:3px 7px;border-radius:4px;white-space:nowrap;z-index:10;pointer-events:none;}
+.chart-lbl{font-size:9px;color:var(--muted2);margin-top:3px;white-space:nowrap;}
+/* OM VIEW TOGGLE */
+.om-view-toggle{display:flex;border-bottom:1px solid var(--border);flex-shrink:0;}
+.om-toggle{flex:1;background:none;border:none;padding:10px 8px;font-size:12.5px;font-weight:600;cursor:pointer;color:var(--muted);border-bottom:2px solid transparent;margin-bottom:-1px;transition:all .15s;display:flex;align-items:center;justify-content:center;gap:6px;}
+.om-toggle:hover{color:var(--text);background:#f8faf7;}
+.om-toggle.active{color:var(--green);border-bottom-color:var(--green);background:var(--green-light);}
+.om-tbadge{background:var(--green);color:#fff;font-size:10px;font-weight:700;padding:1px 6px;border-radius:10px;min-width:18px;text-align:center;}
+.om-tbadge-q{background:var(--yellow);}
+/* QUEUE CARDS */
+.queue-card{padding:9px 11px;border-bottom:1px solid var(--border);cursor:default;transition:background .15s;border-left:3px solid #adb5bd;}
+.queue-card:hover{background:#f8faf7;}
+.qc-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:3px;}
+.qc-id{font-size:11px;font-weight:700;color:var(--green);}
+.qc-store{font-size:13px;font-weight:600;margin-bottom:2px;}
+.qc-item{font-size:11px;color:var(--muted);margin-bottom:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.qc-bot{display:flex;justify-content:space-between;align-items:center;gap:4px;margin-top:5px;flex-wrap:wrap;}
+.qc-buffer{font-size:10px;color:var(--muted);background:#f3f4f6;border-radius:6px;padding:2px 7px;}
+.qc-batch{font-size:10px;font-weight:700;padding:2px 8px;border-radius:10px;color:#fff;}
+.countdown{font-size:13px;font-weight:800;font-family:monospace;color:var(--green);}
+.countdown.urgent{color:var(--red);animation:pulsered 1s infinite;}
+.queue-empty{padding:30px;text-align:center;color:var(--muted2);font-size:13px;line-height:1.7;}
+.queue-summary{padding:7px 12px;border-bottom:1px solid var(--border);font-size:11px;color:var(--muted);background:#f8faf7;display:flex;gap:12px;}
+.queue-summary b{color:var(--text);}
+/* NOTIFICATIONS */
+.notif{position:fixed;top:68px;right:16px;background:var(--dark);color:#fff;padding:10px 16px;border-radius:8px;font-size:13px;z-index:9999;display:flex;align-items:center;gap:8px;box-shadow:0 4px 16px rgba(0,0,0,.25);transform:translateY(-80px);opacity:0;transition:all .3s;pointer-events:none;}
+.notif.show{transform:translateY(0);opacity:1;}
+.notif.alert{background:var(--red);}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">Eco<em>Bite</em> <span style="font-size:10px;opacity:.35;font-weight:400;margin-left:2px">Helsinki</span></div>
+  <button class="tab-btn active" onclick="switchTab('dashboard',this)">Dashboard</button>
+  <button class="tab-btn" onclick="switchTab('fleet',this)">Fleet</button>
+  <button class="tab-btn" onclick="switchTab('ordermgmt',this)">Order Management<div class="tab-alert-dot" id="omAlertDot"></div></button>
+  <button class="tab-btn" onclick="switchTab('admin',this)">Admin</button>
+  <div class="header-right">
+    <div class="live-pill"><div class="live-dot"></div>LIVE</div>
+    <span id="clock">00:00:00</span>
+  </div>
+</header>
+
+<div class="stats-bar">
+  <div class="stat"><div class="stat-lbl">Orders Today</div><div class="stat-val g" id="sOrders">0</div><div class="stat-sub" id="sOrdersSub">—</div></div>
+  <div class="stat"><div class="stat-lbl">Active Couriers</div><div class="stat-val" id="sCouriers">0/35</div><div class="stat-sub" id="sDelivering">—</div></div>
+  <div class="stat"><div class="stat-lbl">Avg Delivery</div><div class="stat-val" id="sAvgTime">—</div><div class="stat-sub">minutes</div></div>
+  <div class="stat"><div class="stat-lbl">Revenue Today</div><div class="stat-val g" id="sRevenue">€0</div><div class="stat-sub" id="sCommission">—</div></div>
+  <div class="stat"><div class="stat-lbl">SLA Alerts</div><div class="stat-val" id="sSLA" style="color:var(--green)">0</div><div class="stat-sub" id="sSLAsub">all green</div></div>
+</div>
+
+<!-- DASHBOARD -->
+<div class="tab-pane active" id="tab-dashboard">
+  <div class="dash-body">
+    <div class="order-panel">
+      <div class="panel-head">Live Orders <span class="badge" id="activeCount">0</span></div>
+      <div class="order-feed" id="orderFeed"></div>
+    </div>
+    <div class="map-wrap">
+      <div id="map"></div>
+      <div class="map-overlay">
+        <div class="leg-title">Legend</div>
+        <div class="leg-row"><div class="leg-sq">🏪</div>EcoBite Darkstore</div>
+        <div class="leg-row"><div class="leg-sq">🍽</div>Restaurant / QSR</div>
+        <div class="leg-row"><div class="leg-sq">🛒</div>Grocery / Café</div>
+        <div class="leg-row"><div class="leg-dot" style="background:#52b043;border:2px solid #fff;"></div>Available</div>
+        <div class="leg-row"><div class="leg-dot" style="background:#0dcaf0;border:2px solid #fff;"></div>Delivering</div>
+        <div class="leg-row"><div class="leg-dot" style="background:#adb5bd;border:2px solid #fff;"></div>Offline</div>
+        <div class="leg-row"><div style="width:22px;height:3px;border-radius:2px;background:linear-gradient(90deg,#0ea5e9,#8b5cf6,#10b981);position:relative;top:1px"></div>Trip route</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- FLEET -->
+<div class="tab-pane" id="tab-fleet">
+  <div class="fleet-body">
+    <div class="fleet-left">
+      <div class="section-head">Fleet Management <span class="badge" id="fleetOnlineCount">0</span> online</div>
+      <div class="fleet-stats">
+        <div class="fstat"><div class="fstat-val" style="color:#0dcaf0" id="fDelivering">0</div><div class="fstat-lbl">Delivering</div></div>
+        <div class="fstat"><div class="fstat-val" style="color:var(--green)" id="fAvailable">0</div><div class="fstat-lbl">Available</div></div>
+        <div class="fstat"><div class="fstat-val" style="color:#adb5bd" id="fIdle">0</div><div class="fstat-lbl">Offline</div></div>
+        <div class="fstat"><div class="fstat-val" id="fTotalDel">0</div><div class="fstat-lbl">Deliveries</div></div>
+      </div>
+      <div class="courier-table">
+        <table><thead><tr><th>Courier</th><th>Status</th><th>Area</th><th>Today</th><th>Rating</th></tr></thead>
+        <tbody id="courierTableBody"></tbody></table>
+      </div>
+    </div>
+    <div class="fleet-right">
+      <div class="fleet-right-head">
+        <span style="font-size:12px;font-weight:600;margin-right:4px">Courier Stats</span>
+        <button class="fleet-period-btn active" onclick="setFleetPeriod('today',this)">Today</button>
+        <button class="fleet-period-btn" onclick="setFleetPeriod('week',this)">Last 7 Days</button>
+        <button class="fleet-period-btn" onclick="setFleetPeriod('month',this)">This Month</button>
+        <button class="fleet-period-btn" onclick="setFleetPeriod('custom',this)">Custom</button>
+      </div>
+      <div class="fleet-stats-tbl">
+        <table>
+          <thead><tr>
+            <th onclick="sortFleetTable('name')">Courier<span id="flSort-name"></span></th>
+            <th onclick="sortFleetTable('registered')">Registered<span id="flSort-registered"></span></th>
+            <th onclick="sortFleetTable('orders')">Orders<span id="flSort-orders"></span></th>
+            <th onclick="sortFleetTable('activeDel')">Active/Hr<span id="flSort-activeDel"></span></th>
+            <th onclick="sortFleetTable('eph')" style="color:var(--green)">€/Hr<span id="flSort-eph"></span></th>
+            <th onclick="sortFleetTable('refundPct')">Refund %<span id="flSort-refundPct"></span></th>
+          </tr></thead>
+          <tbody id="fleetStatsBody"></tbody>
+        </table>
+      </div>
+    </div>
+    <div class="fleet-map-wrap"><div id="fleet-map"></div></div>
+  </div>
+</div>
+
+<!-- ORDER MANAGEMENT -->
+<div class="tab-pane" id="tab-ordermgmt">
+  <div class="om-body">
+    <div class="om-list-panel">
+      <div class="om-view-toggle">
+        <button class="om-toggle active" id="omToggleOrders" onclick="setOMView('orders',this)">📦 Orders <span class="om-tbadge" id="omOrdersBadge">0</span></button>
+        <button class="om-toggle" id="omToggleQueue" onclick="setOMView('queue',this)">⏳ Queue <span class="om-tbadge om-tbadge-q" id="omQueueBadge">0</span></button>
+      </div>
+      <div class="om-filters" id="omFiltersRow">
+        <button class="filter-btn active" onclick="setOMFilter('all',this)">All</button>
+        <button class="filter-btn red" onclick="setOMFilter('red',this)">🔴 Critical</button>
+        <button class="filter-btn yellow" onclick="setOMFilter('yellow',this)">🟡 Warning</button>
+        <button class="filter-btn" onclick="setOMFilter('active',this)">Active</button>
+        <button class="filter-btn" onclick="setOMFilter('done',this)">Done</button>
+      </div>
+      <div class="om-stats-row">
+        <div class="om-stat"><div class="om-stat-val" id="omTotal">0</div><div class="om-stat-lbl">Total</div></div>
+        <div class="om-stat"><div class="om-stat-val" style="color:var(--red)" id="omRed">0</div><div class="om-stat-lbl">Critical</div></div>
+        <div class="om-stat"><div class="om-stat-val" style="color:var(--yellow)" id="omYellow">0</div><div class="om-stat-lbl">Warning</div></div>
+        <div class="om-stat"><div class="om-stat-val" style="color:var(--green)" id="omGreen">0</div><div class="om-stat-lbl">On-Time</div></div>
+      </div>
+      <div class="om-list" id="omList"></div>
+      <div class="om-list" id="queueList" style="display:none"></div>
+    </div>
+    <div class="om-detail">
+      <div class="detail-empty" id="detailEmpty">
+        <svg width="44" height="44" fill="none" viewBox="0 0 24 24"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" stroke="#9aaa9b" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        <span style="font-size:13px">Select an order to view SLA details</span>
+      </div>
+      <div class="detail-scroll" id="detailContent" style="display:none"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ADMIN -->
+<div class="tab-pane" id="tab-admin">
+  <div class="admin-body">
+    <div class="admin-tabs">
+      <button class="atab active" onclick="switchAdmin('orders',this)">Orders</button>
+      <button class="atab" onclick="switchAdmin('merchants',this)">Merchants</button>
+      <button class="atab" onclick="switchAdmin('financials',this)">Financials</button>
+      <button class="atab" onclick="switchAdmin('merchant-settings',this)">⚙️ Manage Merchants</button>
+      <button class="atab" onclick="switchAdmin('customers',this)">👥 Customers</button>
+      <button class="atab" onclick="switchAdmin('mix',this)">📊 Mix &amp; Migration</button>
+    </div>
+    <div class="admin-content">
+      <div class="admin-pane active" id="apane-orders">
+        <div class="admin-grid-4">
+          <div class="astat-card"><div class="astat-lbl">Total Orders</div><div class="astat-val g" id="aOrders">0</div><div class="astat-sub">today</div></div>
+          <div class="astat-card"><div class="astat-lbl">Completed</div><div class="astat-val" id="aDelivered">0</div></div>
+          <div class="astat-card"><div class="astat-lbl">Avg Order Value</div><div class="astat-val g" id="aAvgVal">—</div></div>
+          <div class="astat-card"><div class="astat-lbl">Commission</div><div class="astat-val g" id="aCommission">€0</div></div>
+        </div>
+        <div class="table-card">
+          <div class="table-card-head">Recent Orders <span style="font-size:12px;color:var(--muted);font-weight:400">Last 30</span></div>
+          <table class="tcard-table"><thead id="adminOrderHead"><tr><th>Order ID</th><th>Time</th><th>Store</th><th>Group</th><th style="text-align:right">Value</th><th style="text-align:right">Commission</th><th style="text-align:right">Del.Fee</th><th style="text-align:right">Del.Cost</th><th>ETA</th><th>Status</th><th>SLA</th></tr></thead>
+          <tbody id="adminOrderTable"></tbody><tfoot id="adminOrderFoot"></tfoot></table>
+        </div>
+      </div>
+      <div class="admin-pane" id="apane-merchants">
+        <div class="table-card">
+          <div class="table-card-head">Active Merchants — 18 stores</div>
+          <table class="tcard-table"><thead><tr><th>Store</th><th>Group</th><th>Commission</th><th>Min Order</th><th>Orders Today</th><th>Revenue Today</th><th>Status</th></tr></thead>
+          <tbody id="merchantTable"></tbody></table>
+        </div>
+      </div>
+      <div class="admin-pane" id="apane-merchant-settings">
+        <div id="merchantSettingsPane" style="display:flex;flex-direction:column;min-height:0;height:100%"></div>
+      </div>
+      <div class="admin-pane" id="apane-customers">
+        <div class="fin-period" style="margin-bottom:12px">
+          <button class="period-btn" onclick="setCustPeriod('today',this)">Today</button>
+          <button class="period-btn active" onclick="setCustPeriod('week',this)">Last 7 Days</button>
+          <button class="period-btn" onclick="setCustPeriod('month',this)">This Month</button>
+          <button class="period-btn" onclick="setCustPeriod('all',this)">All Time</button>
+          <button class="period-btn" onclick="setCustPeriod('custom',this)">Custom</button>
+          <div id="custDateRange" style="display:none;gap:8px;align-items:center">
+            <input type="date" id="custDateFrom" style="padding:4px 8px;border:1px solid var(--border);border-radius:6px;font-size:12px">
+            <span style="color:var(--muted)">→</span>
+            <input type="date" id="custDateTo" style="padding:4px 8px;border:1px solid var(--border);border-radius:6px;font-size:12px">
+            <button class="period-btn active" onclick="applyCustPeriod()">Apply</button>
+          </div>
+        </div>
+        <div class="admin-grid-4" id="custKPIs"></div>
+        <div class="table-card">
+          <div class="table-card-head">👥 Customers</div>
+          <table class="tcard-table"><thead id="customerTableHead"><tr>
+            <th>Customer</th><th style="text-align:right">Orders</th><th style="text-align:right">Avg Value</th><th style="text-align:right">Total Value</th>
+            <th style="text-align:right">Commission</th><th style="text-align:right">Del. Fees</th><th style="text-align:right">Courier Cost</th><th style="text-align:right">Gross Profit</th>
+          </tr></thead>
+          <tbody id="customerTable"></tbody>
+          <tfoot id="customerTableFoot"></tfoot>
+        </table></div>
+      </div>
+      <div class="admin-pane" id="apane-mix">
+        <div class="fin-period" style="margin-bottom:12px">
+          <button class="period-btn" onclick="setMixPeriod('today',this)">Today</button>
+          <button class="period-btn" onclick="setMixPeriod('last7',this)">Last 7 Days</button>
+          <button class="period-btn active" onclick="setMixPeriod('month',this)">This Month</button>
+          <button class="period-btn" onclick="setMixPeriod('3months',this)">Last 3 Months</button>
+          <button class="period-btn" onclick="setMixPeriod('year',this)">This Year</button>
+          <button class="period-btn" onclick="setMixPeriod('custom',this)">Custom</button>
+          <div id="mixDateRange" style="display:none;gap:8px;align-items:center">
+            <input type="date" id="mixDateFrom" style="padding:4px 8px;border:1px solid var(--border);border-radius:6px;font-size:12px">
+            <span style="color:var(--muted)">→</span>
+            <input type="date" id="mixDateTo" style="padding:4px 8px;border:1px solid var(--border);border-radius:6px;font-size:12px">
+            <button class="period-btn active" onclick="applyMixPeriod()">Apply</button>
+          </div>
+        </div>
+        <div class="admin-grid-4" id="mixKPIs"></div>
+        <div class="table-card">
+          <div class="table-card-head">📊 Order Mix Evolution</div>
+          <div id="mixContent" style="padding:12px 16px 16px"></div>
+        </div>
+      </div>
+      <div class="admin-pane" id="apane-financials">
+        <div class="fin-view-row">
+          <span class="fin-view-lbl">View:</span>
+          <button class="fin-view-btn active" onclick="setFinView('group',this)">By Group</button>
+          <button class="fin-view-btn" onclick="setFinView('merchant',this)">By Merchant</button>
+          <button class="fin-view-btn" onclick="setFinView('customer',this)">By Customer *</button>
+          <span style="font-size:10px;color:var(--muted2);margin-left:4px">* live session only</span>
+          <input class="fin-search" type="text" id="finSearch" placeholder="Search…" oninput="renderFinancials()" style="display:none">
+        </div>
+        <div class="fin-period">
+          <button class="period-btn active" onclick="setPeriod('today',this)">Today</button>
+          <button class="period-btn" onclick="setPeriod('week',this)">Last 7 Days</button>
+          <button class="period-btn" onclick="setPeriod('month',this)">This Month</button>
+          <button class="period-btn" onclick="setPeriod('custom',this)">Custom</button>
+          <span id="customDateRange" style="display:none;align-items:center;gap:6px;">
+            <input type="date" class="fin-date-input" id="finDateFrom" value="2026-03-01">
+            <span style="font-size:12px;color:var(--muted)">to</span>
+            <input type="date" class="fin-date-input" id="finDateTo" value="2026-04-01">
+            <button class="fin-apply" onclick="applyCustomPeriod()">Apply</button>
+          </span>
+        </div>
+        <div class="admin-grid-6" id="finKPIs"></div>
+        <div class="table-card">
+          <div class="table-card-head">P&amp;L by Group</div>
+          <table class="tcard-table">
+            <thead><tr><th>Group</th><th>Orders</th><th>Avg Value</th><th>Gross Sales</th><th>Commission</th><th>Del. Fees</th><th>Courier Costs</th><th>Gross Profit</th><th>Margin %</th></tr></thead>
+            <tbody id="finTable"></tbody>
+            <tfoot id="finTableFoot"></tfoot>
+          </table>
+        </div>
+        <div class="chart-wrap" id="finChartWrap">
+          <div class="chart-title">Daily Gross Profit (€)</div>
+          <div class="bar-chart" id="finChart"></div>
+        </div>
+        <div class="fleet-eff-section" id="fleetEffSection">
+          <div class="fleet-eff-head">⚡ Fleet Efficiency — Live Session <span id="fleetEffPeriodNote" style="font-size:11px;font-weight:400;color:var(--muted)"></span></div>
+          <div class="fleet-eff-stats" id="fleetEffStats"></div>
+          <table class="tcard-table" id="fleetEffTable">
+            <thead><tr><th>Trip</th><th>Courier</th><th>Orders</th><th>Merchants</th><th>Status</th><th>Revenue</th><th>Cost</th><th>Profit</th></tr></thead>
+            <tbody id="fleetEffBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="notif" id="notif"></div>
+
+<script>
+// ══════════════════════════════════════════
+// CONFIG
+// ══════════════════════════════════════════
+const DELIVERY_FEE = 4.90;        // legacy constant — use calcFee() for actual revenue
+const COURIER_TRIP_COST = 20.00;  // total cost per TRIP; share = 20 / orders_in_trip
+const BATCH_WINDOW_QSR   = 60000; // 60s demo = labeled "20 min ETA buffer"
+const BATCH_WINDOW_OTHER = 90000; // 90s demo = labeled "30 min ETA buffer"
+const TRIP_COLORS = ['#0ea5e9','#f59e0b','#8b5cf6','#ef4444','#10b981','#f97316'];
+const BATCH_MERGE_RADIUS = 0.022; // ~2km in lat/lng degrees
+const BATCH_ANGLE_TOL    = 120;   // max bearing angle difference (widened for demo visibility)
+const MAX_BATCH          = 4;
+
+// ══════════════════════════════════════════
+// STORES — Helsinki
+// ══════════════════════════════════════════
+const STORES = [
+  {id:"merch_01",name:"EcoBite Darkstore Kamppi",type:"darkstore",group:"darkstore",lat:60.1670,lng:24.9199,emoji:"🏪",rating:4.9,commission:0.30,minOrder:15,deliveryFee:0,avgOrder:80,freeDeliveryThreshold:20,feeUnder:1.90,feeOver:0.00,
+   legalName:"EcoBite Logistics Oy",contactPerson:"Mikko Virtanen",email:"kamppi@ecobite.fi",iban:"FI21 1234 5600 0007 85",address:"Urho Kekkosen katu 1, 00100 Helsinki"},
+  {id:"merch_02",name:"EcoBite Darkstore Kallio",type:"darkstore",group:"darkstore",lat:60.1890,lng:24.9510,emoji:"🏪",rating:4.9,commission:0.30,minOrder:15,deliveryFee:0,avgOrder:80,freeDeliveryThreshold:20,feeUnder:1.90,feeOver:0.00,
+   legalName:"EcoBite Logistics Oy",contactPerson:"Mikko Virtanen",email:"kallio@ecobite.fi",iban:"FI21 1234 5600 0007 85",address:"Hämeentie 12, 00530 Helsinki"},
+  {id:"merch_03",name:"EcoBite Darkstore Pasila",type:"darkstore",group:"darkstore",lat:60.1994,lng:24.9300,emoji:"🏪",rating:4.8,commission:0.30,minOrder:15,deliveryFee:0,avgOrder:80,freeDeliveryThreshold:20,feeUnder:1.90,feeOver:0.00,
+   legalName:"EcoBite Logistics Oy",contactPerson:"Mikko Virtanen",email:"pasila@ecobite.fi",iban:"FI21 1234 5600 0007 85",address:"Ratapihantie 11, 00520 Helsinki"},
+  {id:"merch_04",name:"McDonald's Kamppi",type:"qsr",group:"qsr",lat:60.1693,lng:24.9299,emoji:"🍔",rating:4.2,commission:0.10,minOrder:5,deliveryFee:DELIVERY_FEE,avgOrder:18,freeDeliveryThreshold:25,feeUnder:3.90,feeOver:2.90,
+   legalName:"Oy McDonald's Finland Ab",contactPerson:"Jaakko Saarinen",email:"delivery.kamppi@mcdonalds.fi",iban:"FI58 1017 3000 0034 51",address:"Urho Kekkosen katu 3, 00100 Helsinki"},
+  {id:"merch_05",name:"McDonald's Rautatientori",type:"qsr",group:"qsr",lat:60.1719,lng:24.9414,emoji:"🍔",rating:4.1,commission:0.10,minOrder:5,deliveryFee:DELIVERY_FEE,avgOrder:18,freeDeliveryThreshold:25,feeUnder:3.90,feeOver:2.90,
+   legalName:"Oy McDonald's Finland Ab",contactPerson:"Jaakko Saarinen",email:"delivery.rautatientori@mcdonalds.fi",iban:"FI58 1017 3000 0034 51",address:"Kaivokatu 6, 00100 Helsinki"},
+  {id:"merch_06",name:"Hesburger Forum",type:"qsr",group:"qsr",lat:60.1699,lng:24.9384,emoji:"🍟",rating:4.3,commission:0.10,minOrder:5,deliveryFee:DELIVERY_FEE,avgOrder:18,freeDeliveryThreshold:25,feeUnder:3.90,feeOver:2.90,
+   legalName:"Hesburger Oy",contactPerson:"Timo Leinonen",email:"toimitus.forum@hesburger.fi",iban:"FI49 4055 0010 0237 62",address:"Mannerheimintie 14, 00100 Helsinki"},
+  {id:"merch_07",name:"McDonald's Itäkeskus",type:"qsr",group:"qsr",lat:60.2103,lng:25.0780,emoji:"🍔",rating:4.0,commission:0.10,minOrder:5,deliveryFee:DELIVERY_FEE,avgOrder:18,freeDeliveryThreshold:25,feeUnder:3.90,feeOver:2.90,
+   legalName:"Oy McDonald's Finland Ab",contactPerson:"Jaakko Saarinen",email:"delivery.itakeskus@mcdonalds.fi",iban:"FI58 1017 3000 0034 51",address:"Itäkatu 1, 00930 Helsinki"},
+  {id:"merch_08",name:"Burger King Kamppi",type:"qsr",group:"qsr",lat:60.1688,lng:24.9315,emoji:"🍔",rating:4.2,commission:0.10,minOrder:5,deliveryFee:DELIVERY_FEE,avgOrder:18,freeDeliveryThreshold:25,feeUnder:3.90,feeOver:2.90,
+   legalName:"Burger Restaurants Finland Oy",contactPerson:"Annika Korhonen",email:"toimitus.kamppi@burgerking.fi",iban:"FI72 3301 1234 5670 09",address:"Eerikinkatu 11, 00100 Helsinki"},
+  {id:"merch_09",name:"Ravintola Nokka",type:"restaurant",group:"restaurant",lat:60.1671,lng:24.9601,emoji:"🍽️",rating:4.8,commission:0.22,minOrder:20,deliveryFee:DELIVERY_FEE,avgOrder:40,freeDeliveryThreshold:25,feeUnder:4.90,feeOver:0.90,
+   legalName:"Ravintolayhtiö Nokka Oy",contactPerson:"Sari Hämäläinen",email:"toimitus@ravintolanokka.fi",iban:"FI14 2000 1400 0388 43",address:"Kanavaranta 7, 00160 Helsinki"},
+  {id:"merch_10",name:"Savotta",type:"restaurant",group:"restaurant",lat:60.1696,lng:24.9520,emoji:"🇫🇮",rating:4.7,commission:0.20,minOrder:20,deliveryFee:DELIVERY_FEE,avgOrder:40,freeDeliveryThreshold:25,feeUnder:4.90,feeOver:0.90,
+   legalName:"Ravintola Savotta Oy",contactPerson:"Juhani Mäkinen",email:"keittiö@savotta.fi",iban:"FI91 5000 4699 0013 75",address:"Aleksanterinkatu 22, 00170 Helsinki"},
+  {id:"merch_11",name:"Sea Horse",type:"restaurant",group:"restaurant",lat:60.1592,lng:24.9461,emoji:"🐟",rating:4.6,commission:0.18,minOrder:15,deliveryFee:DELIVERY_FEE,avgOrder:40,freeDeliveryThreshold:25,feeUnder:4.90,feeOver:0.90,
+   legalName:"Sea Horse Restaurants Oy",contactPerson:"Helena Niemi",email:"toimitus@seahorse.fi",iban:"FI26 1660 3000 1083 21",address:"Kapteeninkatu 11, 00140 Helsinki"},
+  {id:"merch_12",name:"Ravintola Kuu",type:"restaurant",group:"restaurant",lat:60.1797,lng:24.9223,emoji:"🌙",rating:4.7,commission:0.21,minOrder:15,deliveryFee:DELIVERY_FEE,avgOrder:40,freeDeliveryThreshold:25,feeUnder:4.90,feeOver:0.90,
+   legalName:"Ravintola Kuu Oy",contactPerson:"Pasi Lehtinen",email:"info@ravintolakuu.fi",iban:"FI37 4948 3000 0472 06",address:"Töölönkatu 27, 00260 Helsinki"},
+  {id:"merch_13",name:"Fafa's Kamppi",type:"restaurant",group:"restaurant",lat:60.1683,lng:24.9329,emoji:"🥙",rating:4.5,commission:0.19,minOrder:10,deliveryFee:DELIVERY_FEE,avgOrder:40,freeDeliveryThreshold:25,feeUnder:4.90,feeOver:0.90,
+   legalName:"Fafa's Finland Oy",contactPerson:"Omar Nassif",email:"toimitus.kamppi@fafas.fi",iban:"FI83 6601 0001 2398 51",address:"Fredrikinkatu 49, 00100 Helsinki"},
+  {id:"merch_14",name:"Ravintola Olo",type:"restaurant",group:"restaurant",lat:60.1677,lng:24.9524,emoji:"⭐",rating:4.9,commission:0.23,minOrder:30,deliveryFee:DELIVERY_FEE,avgOrder:40,freeDeliveryThreshold:25,feeUnder:4.90,feeOver:0.90,
+   legalName:"Olo Ravintola Oy",contactPerson:"Pirita Koskinen",email:"toimitus@ravintolaolo.fi",iban:"FI05 7997 7995 4210 73",address:"Pohjoisesplanadi 5, 00170 Helsinki"},
+  {id:"merch_15",name:"Ravintola Farang",type:"restaurant",group:"restaurant",lat:60.1627,lng:24.9395,emoji:"🌏",rating:4.6,commission:0.17,minOrder:15,deliveryFee:DELIVERY_FEE,avgOrder:40,freeDeliveryThreshold:25,feeUnder:4.90,feeOver:0.90,
+   legalName:"Farang Finland Oy",contactPerson:"Aki Wahlman",email:"toimitus@farang.fi",iban:"FI62 1012 3456 7890 10",address:"Ainonkatu 3, 00100 Helsinki"},
+  {id:"merch_16",name:"K-Market Kallio",type:"grocery",group:"other",lat:60.1828,lng:24.9497,emoji:"🛒",rating:4.4,commission:0.08,minOrder:20,deliveryFee:DELIVERY_FEE,avgOrder:50,freeDeliveryThreshold:30,feeUnder:4.90,feeOver:2.90,
+   legalName:"Keskon Kauppiaat Oy",contactPerson:"Vesa Peltomäki",email:"kmarket.kallio@kesko.fi",iban:"FI48 8000 1234 5678 90",address:"Hämeentie 19, 00500 Helsinki"},
+  {id:"merch_17",name:"Antell Café Kamppi",type:"cafe",group:"other",lat:60.1672,lng:24.9340,emoji:"☕",rating:4.6,commission:0.12,minOrder:8,deliveryFee:DELIVERY_FEE,avgOrder:50,freeDeliveryThreshold:30,feeUnder:4.90,feeOver:2.90,
+   legalName:"Antell Oy",contactPerson:"Laura Antell",email:"kamppi@antell.fi",iban:"FI19 1234 5600 1234 52",address:"Kampinkuja 1, 00100 Helsinki"},
+  {id:"merch_18",name:"Alepa Töölö",type:"grocery",group:"other",lat:60.1756,lng:24.9220,emoji:"🛒",rating:4.3,commission:0.10,minOrder:15,deliveryFee:DELIVERY_FEE,avgOrder:50,freeDeliveryThreshold:30,feeUnder:4.90,feeOver:2.90,
+   legalName:"SOK Palvelut Oy",contactPerson:"Rauno Ojala",email:"alepa.toolo@sok.fi",iban:"FI55 5000 1234 5600 78",address:"Töölöntorinkatu 4, 00260 Helsinki"},
+];
+
+const COURIER_NAMES=["Mikael A.","Pekka S.","Lauri M.","Juhani K.","Antti V.","Tuomas H.","Heikki R.","Sami T.","Ville J.","Petteri L.","Tomi N.","Jarkko P.","Jarno K.","Kimmo S.","Riku V.","Niklas H.","Joni R.","Saku T.","Eetu J.","Iiro L.","Kasper M.","Olli P.","Akseli K.","Eemi S.","Joona V.","Otto H.","Leo K.","Aaro M.","Eeli P.","Paavo S.","Matias L.","Aleksi T.","Valtteri R.","Juho K.","Oskari M."];
+const CUSTOMER_NAMES=["Aino Mäkinen","Eetu Virtanen","Hanna Korhonen","Jukka Nieminen","Kaisa Mäkelä","Lauri Hämäläinen","Maria Leinonen","Niko Heikkinen","Oona Järvinen","Petri Lehtonen","Riikka Saarinen","Sami Salminen","Tiina Heinonen","Uolevi Niemi","Viivi Leppänen","Aapo Koskinen","Brita Heikkilä","Erno Männistö","Fanni Ojala","Greta Peltonen","Harri Alho","Iida Sundqvist","Joona Karjalainen","Kirsi Lindqvist","Lasse Markkanen","Mervi Niskanen","Nora Pitkänen","Olavi Rantanen","Päivi Tuominen","Riku Saari","Sofia Hakala","Tero Mattila","Ulla Takala","Veikko Jokinen","Wendy Lahti","Aleksi Hiltunen","Anni Väisänen","Björn Kärkkäinen","Carita Aalto","Dennis Luoto","Elsa Koivula","Filip Holm","Gloria Mäntylä","Henrik Ruotsalainen","Inga Nurminen","Jussi Kurki","Katja Pulkkinen","Lotta Repo","Matti Hyvönen","Nina Salmela","Outi Toivonen","Petteri Manner","Raija Kivi","Susanna Ylinen","Tommi Paananen","Urho Jyrkinen","Varpu Sairanen","Wilma Tikkanen","Xenia Honkanen","Ylermi Kumpulainen"];
+const AREAS=["Kamppi","Kallio","Töölö","Kruununhaka","Katajanokka","Punavuori","Eira","Sörnäinen","Pasila","Vallila","Alppila","Hermanni","Arabianranta","Lauttasaari","Munkkiniemi"];
+const ADDRS=["Mannerheimintie 5","Aleksanterinkatu 17","Unioninkatu 23","Fredrikinkatu 8","Bulevardi 14","Iso Roobertinkatu 22","Lönnrotinkatu 11","Eerikinkatu 4","Hämeentie 35","Fleminginkatu 7","Pengerkatu 15","Siltasaarenkatu 9","Töölönkatu 18","Mechelininkatu 25","Runeberginkatu 12","Malminkatu 14","Annankatu 27","Mikonkatu 9","Kasarmikatu 11","Korkeavuorenkatu 6"];
+const MENUS={darkstore:["Grocery bundle","Fresh produce box","Dairy & bread kit","Snack selection","Weekly essentials","Organic veg box"],qsr:["Big Mac Menu","Chicken Nuggets 9pc","Whopper Meal","Fries + Shake","Double Cheeseburger","Crispy Chicken Wrap"],restaurant:["Grilled Salmon","Caesar Salad","Pasta Carbonara","Beef Tenderloin","Mushroom Risotto","Nordic Platter","Reindeer Stew","Fish & Chips"],cafe:["Latte + Croissant","Breakfast Box","Granola Bowl","Avocado Toast"],grocery:["Fresh vegetables","Dairy selection","Bakery items","Weekly shop"]};
+const PROMISED_ETAS=[20,50,70];
+const randPhone=()=>"+358 40 "+Math.floor(Math.random()*900+100)+" "+Math.floor(Math.random()*9000+1000);
+
+// ══════════════════════════════════════════
+// STATE
+// ══════════════════════════════════════════
+let orders=[], couriers=[], orderQueue=[], trips=[], orderIdCtr=1000, tripIdCtr=0;
+let totalRevenue=0, totalCommission=0, totalFees=0, totalTripCosts=0, ordersToday=0;
+let deliveryTimes=[], lastHourOrders=0;
+let map=null, fleetMap=null, fleetMapInit=false;
+let courierMarkers={}, fleetMarkers={}, tripPolylines={};
+let omFilter='all', omView='orders', selectedOrderId=null;
+let finPeriod='today', finView='group', expandedTripId=null, expandedAdminOrderId=null;
+let finGroupSortKey='gp', finGroupSortDir=-1;
+let finMerchSortKey='gp', finMerchSortDir=-1;
+let finCustSortKey='spent', finCustSortDir=-1;
+let adminOrdSortKey='time', adminOrdSortDir=-1;
+let custPeriod='week', custSortKey='gp', custSortDir=-1, expandedCustomerId=null;
+let fleetPeriod='today', fleetSort='name', fleetSortDir=1;
+let mixPeriod='month', mixDateFrom='', mixDateTo='';
+let selectedMerchantId=null, merchantDetailTab='profile', merchantFinPeriod='week', merchantSortKey='date', merchantSortDir=1, merchantFinFilter='all';
+let merchantSettings = {}; // {[storeId]: {commission?, minOrder?, freeDeliveryThreshold?}} — forward-only overrides
+
+const MS_KEY='ecobiteMerchantSettings';
+function persistMerchantSettings(){try{localStorage.setItem(MS_KEY,JSON.stringify(merchantSettings));}catch(e){}}
+function loadMerchantSettings(){try{const raw=localStorage.getItem(MS_KEY);if(raw)merchantSettings=JSON.parse(raw);}catch(e){merchantSettings={};}}
+
+// Returns the effective value for a merchant setting — override first, STORES default second
+function getMerchantSetting(storeId, field){
+  const ov=merchantSettings[storeId];
+  if(ov&&ov[field]!==undefined)return ov[field];
+  const store=STORES.find(s=>s.id===storeId);
+  return store?store[field]:undefined;
+}
+
+// ══════════════════════════════════════════
+// SEEDED PRNG (mulberry32) for historical data
+// ══════════════════════════════════════════
+function mulberry32(seed){
+  return function(){seed|=0;seed=seed+0x6D2B79F5|0;let t=Math.imul(seed^seed>>>15,1|seed);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;};
+}
+
+// ══════════════════════════════════════════
+// FINANCIAL HELPERS — single source of truth
+// ══════════════════════════════════════════
+// Delivery fee revenue earned by EcoBite per order
+function calcFee(group, val, threshold, feeUnder, feeOver){
+  const thr=threshold!==undefined?threshold:(group==='darkstore'?20:group==='other'?30:25);
+  if(feeUnder!==undefined){return val<thr?feeUnder:feeOver;}
+  // historical path — original hardcoded amounts (getDayData callers pass only 2 args)
+  const feeAmt=group==='darkstore'?2.90:5.00;
+  return val<thr?feeAmt:0;
+}
+// Courier cost share for one order in a trip of tripSize orders
+function calcCourierShare(tripSize){
+  return Math.round(COURIER_TRIP_COST/tripSize*100)/100;
+}
+// Gross profit for one order
+function calcOrderProfit(comm, feeRev, courierShare){
+  return Math.round((comm+feeRev-courierShare)*100)/100;
+}
+
+// ══════════════════════════════════════════
+// HISTORICAL FINANCIAL DATA
+// ══════════════════════════════════════════
+function getHistoricalDays(){
+  const start=new Date('2026-03-01');
+  const today=new Date();today.setHours(23,59,59,999);
+  const days=[];let d=new Date(start);
+  while(d<=today){days.push(new Date(d));d.setDate(d.getDate()+1);}
+  return days;
+}
+
+function getDayData(date){
+  const key=Math.floor(date.getTime()/86400000);
+  const rng=mulberry32(key);
+  const nOrders=Math.floor(40+rng()*22);
+  const g={darkstore:{orders:0,sales:0,commission:0,fees:0,couriers:0,trips:0},qsr:{orders:0,sales:0,commission:0,fees:0,couriers:0,trips:0},restaurant:{orders:0,sales:0,commission:0,fees:0,couriers:0,trips:0},other:{orders:0,sales:0,commission:0,fees:0,couriers:0,trips:0}};
+  // Per-merchant aggregation (deterministic using PRNG)
+  const storesByGroup={};
+  STORES.forEach(s=>{if(!storesByGroup[s.group])storesByGroup[s.group]=[];storesByGroup[s.group].push(s.id);});
+  const mAgg={};STORES.forEach(s=>{mAgg[s.id]={orders:0,sales:0,commission:0,fees:0,couriers:0};});
+  // Build order list
+  const orderList=[];
+  for(let i=0;i<nOrders;i++){
+    const r=rng();let group,val,comm;
+    if(r<0.20){group='darkstore';val=15+rng()*65;comm=0.30;}
+    else if(r<0.50){group='qsr';val=15+rng()*38;comm=0.10;}
+    else if(r<0.88){group='restaurant';val=30+rng()*40;comm=0.15+rng()*0.08;}
+    else{group='other';val=20+rng()*60;comm=0.08+rng()*0.07;}
+    val=Math.round(val*100)/100;
+    const orderComm=Math.round(val*comm*100)/100;
+    const fee=calcFee(group,val);
+    // Pick a specific store within this group deterministically
+    const sArr=storesByGroup[group]||[];
+    const sid=sArr.length?sArr[Math.floor(rng()*sArr.length)]:null;
+    orderList.push({group,val,orderComm,fee,sid});
+    g[group].orders++;g[group].sales+=val;g[group].commission+=orderComm;g[group].fees+=fee;
+    if(sid){mAgg[sid].orders++;mAgg[sid].sales+=val;mAgg[sid].commission+=orderComm;mAgg[sid].fees+=fee;}
+  }
+  // Simulate trip batching: 28% solo, 32% pair, 25% triple, 15% quad
+  let idx=0;let totalTrips=0;
+  while(idx<orderList.length){
+    const r2=rng();
+    const size=r2<0.20?1:r2<0.50?2:r2<0.75?3:4;
+    const batch=orderList.slice(idx,Math.min(idx+size,orderList.length));
+    const tripShare=calcCourierShare(batch.length);
+    batch.forEach(o=>{
+      g[o.group].couriers+=tripShare;g[o.group].trips+=1/batch.length;
+      if(o.sid)mAgg[o.sid].couriers+=tripShare;
+    });
+    totalTrips++;idx+=batch.length;
+  }
+  return{date,nOrders,totalTrips,g,mAgg};
+}
+
+function getRange(from,to){
+  const days=getHistoricalDays().filter(d=>{const ds=new Date(d);ds.setHours(0,0,0,0);return ds>=from&&ds<=to;});
+  const agg={darkstore:{orders:0,sales:0,commission:0,fees:0,couriers:0,trips:0},qsr:{orders:0,sales:0,commission:0,fees:0,couriers:0,trips:0},restaurant:{orders:0,sales:0,commission:0,fees:0,couriers:0,trips:0},other:{orders:0,sales:0,commission:0,fees:0,couriers:0,trips:0}};
+  const mAgg={};STORES.forEach(s=>{mAgg[s.id]={orders:0,sales:0,commission:0,fees:0,couriers:0};});
+  const daily=[];let totalOrders=0,totalTrips=0;
+  days.forEach(d=>{
+    const dd=getDayData(d);totalOrders+=dd.nOrders;totalTrips+=dd.totalTrips;let dp=0;
+    Object.keys(agg).forEach(g=>{Object.keys(agg[g]).forEach(k=>agg[g][k]+=dd.g[g][k]??0);dp+=dd.g[g].commission+dd.g[g].fees-dd.g[g].couriers;});
+    if(dd.mAgg)Object.keys(dd.mAgg).forEach(sid=>Object.keys(mAgg[sid]||{}).forEach(k=>mAgg[sid][k]+=dd.mAgg[sid][k]??0));
+    daily.push({date:d,profit:dp,orders:dd.nOrders});
+  });
+  return{agg,mAgg,daily,totalOrders,totalTrips};
+}
+
+// ══════════════════════════════════════════
+// MIX & MIGRATION DATA LAYER
+// ══════════════════════════════════════════
+// Returns array of day objects for up to 90 days from 2026-03-01
+// mix: {qsr, restaurant, other, darkstore} (fractions, sum=1)
+// segOrders: {qsr, restaurant, other, darkstore} (counts, sum=nOrders)
+// segRevenue, segProfit: {qsr, restaurant, other, darkstore} (€)
+// from, to: Date objects (inclusive). dayOffset always counted from epoch 2026-03-01
+// so mix fractions stay correct regardless of which window is requested.
+function _getMixEvolution(from,to){
+  const SEG_AVG={darkstore:47.50,qsr:34.00,restaurant:50.00,other:50.00};
+  const SEG_COMM={darkstore:0.30,qsr:0.10,restaurant:0.19,other:0.115};
+  const SEG_FEE={darkstore:0.22,qsr:1.32,restaurant:0.00,other:0.83};
+  const AVG_TRIP_SIZE=2.27;
+  const epoch=new Date('2026-03-01');
+  const result=[];
+  const d=new Date(from);d.setHours(0,0,0,0);
+  while(d<=to){
+    const date=new Date(d);
+    const dayOffset=Math.round((date.getTime()-epoch.getTime())/86400000);
+    if(dayOffset<0){d.setDate(d.getDate()+1);continue;}
+    const monthOffset=dayOffset/30.44;
+    let qsr=Math.max(0,0.50-0.05*monthOffset);
+    let rest=Math.max(0,0.20-0.02*monthOffset);
+    let other=Math.max(0,0.10-0.01*monthOffset);
+    let ds_raw=1-qsr-rest-other;
+    let ds=Math.min(0.50,ds_raw);
+    if(ds_raw>0.50){
+      const excess=ds_raw-0.50;
+      const sumO=qsr+rest+other;
+      if(sumO>0){qsr+=excess*qsr/sumO;rest+=excess*rest/sumO;other+=excess*other/sumO;}
+    }
+    const mix={qsr,restaurant:rest,other,darkstore:ds};
+    const key=Math.floor(date.getTime()/86400000);
+    const rng=mulberry32(key);
+    const nOrders=Math.floor(40+rng()*22);
+    const segs=['qsr','restaurant','other'];
+    const segOrders={};let allocated=0;
+    segs.forEach(s=>{segOrders[s]=Math.round(nOrders*mix[s]);allocated+=segOrders[s];});
+    segOrders.darkstore=Math.max(0,nOrders-allocated);
+    const segRevenue={},segProfit={};
+    ['qsr','restaurant','other','darkstore'].forEach(s=>{
+      const n=segOrders[s];
+      segRevenue[s]=Math.round(n*SEG_AVG[s]*100)/100;
+      const comm=Math.round(segRevenue[s]*SEG_COMM[s]*100)/100;
+      const fees=Math.round(n*SEG_FEE[s]*100)/100;
+      const couriers=Math.round((n/AVG_TRIP_SIZE)*COURIER_TRIP_COST*100)/100;
+      segProfit[s]=Math.round((comm+fees-couriers)*100)/100;
+    });
+    result.push({date,dayOffset,mix,nOrders,segOrders,segRevenue,segProfit});
+    d.setDate(d.getDate()+1);
+  }
+  return result;
+}
+
+// Returns {from, to, label} Date objects for the current mixPeriod selection
+// Clamps from to simulation epoch (2026-03-01); never returns future dates
+function _getMixPeriodRange(){
+  const now=new Date();
+  const todayStart=new Date(now.getFullYear(),now.getMonth(),now.getDate());
+  const todayEnd=new Date(now.getFullYear(),now.getMonth(),now.getDate(),23,59,59,999);
+  const epoch=new Date('2026-03-01');
+  let from,to,label;
+  if(mixPeriod==='today'){
+    from=new Date(Math.max(todayStart.getTime(),epoch.getTime()));to=todayEnd;label='Today';
+  }else if(mixPeriod==='last7'){
+    const f=new Date(todayStart);f.setDate(f.getDate()-6);
+    from=new Date(Math.max(f.getTime(),epoch.getTime()));to=todayEnd;label='Last 7 Days';
+  }else if(mixPeriod==='month'){
+    const f=new Date(now.getFullYear(),now.getMonth(),1);
+    from=new Date(Math.max(f.getTime(),epoch.getTime()));to=todayEnd;label='This Month';
+  }else if(mixPeriod==='3months'){
+    const f=new Date(todayStart);f.setDate(f.getDate()-89);
+    from=new Date(Math.max(f.getTime(),epoch.getTime()));to=todayEnd;label='Last 3 Months';
+  }else if(mixPeriod==='year'){
+    const f=new Date(now.getFullYear(),0,1);
+    from=new Date(Math.max(f.getTime(),epoch.getTime()));to=todayEnd;label='This Year';
+  }else if(mixPeriod==='custom'&&mixDateFrom&&mixDateTo){
+    const f=new Date(mixDateFrom);
+    from=new Date(Math.max(f.getTime(),epoch.getTime()));
+    to=new Date(mixDateTo);to.setHours(23,59,59,999);label='Custom';
+  }else{
+    const f=new Date(now.getFullYear(),now.getMonth(),1);
+    from=new Date(Math.max(f.getTime(),epoch.getTime()));to=todayEnd;label='This Month';
+  }
+  return{from,to,label};
+}
+
+// ══════════════════════════════════════════
+// CUSTOMER DATA LAYER
+// ══════════════════════════════════════════
+// Returns stable pool of N customers (deterministic, seeded by index)
+function getCustomerPool(n){
+  const pool=[];
+  for(let i=0;i<n;i++){
+    const rng=mulberry32(9001+i);rng();rng(); // advance seed to avoid collision with day seeds
+    const name=CUSTOMER_NAMES[Math.floor(rng()*CUSTOMER_NAMES.length)];
+    const addr=ADDRS[Math.floor(rng()*ADDRS.length)];
+    pool.push({id:`CUST-${String(i+1).padStart(3,'0')}`,name,addr});
+  }
+  return pool;
+}
+
+// Returns Map<customerId, {name,addr,orders:[]}> for all historical orders in [from,to]
+// Each order: {date, storeId, storeName, storeEmoji, group, val, comm, fee, tripSize, item}
+// Uses the same day PRNG seed as getDayData so assignment is fully deterministic
+function getCustomerHistory(from,to){
+  const POOL_SIZE=80;
+  const pool=getCustomerPool(POOL_SIZE);
+  const map=new Map();
+  pool.forEach(c=>map.set(c.id,{name:c.name,addr:c.addr,orders:[]}));
+  const storesByGroup={};
+  STORES.forEach(s=>{if(!storesByGroup[s.group])storesByGroup[s.group]=[];storesByGroup[s.group].push(s);});
+  const days=getHistoricalDays().filter(d=>{const ds=new Date(d);ds.setHours(0,0,0,0);return ds>=from&&ds<=to;});
+  days.forEach(date=>{
+    const key=Math.floor(date.getTime()/86400000);
+    const rng=mulberry32(key);
+    const nOrders=Math.floor(40+rng()*22);
+    // First pass: build order list (no tripSize yet — mirrors getDayData pass 1)
+    const orderList=[];
+    for(let i=0;i<nOrders;i++){
+      const r=rng();let group,val,comm;
+      if(r<0.20){group='darkstore';val=15+rng()*65;comm=0.30;}
+      else if(r<0.50){group='qsr';val=15+rng()*38;comm=0.10;}
+      else if(r<0.88){group='restaurant';val=30+rng()*40;comm=0.15+rng()*0.08;}
+      else{group='other';val=20+rng()*60;comm=0.08+rng()*0.07;}
+      val=Math.round(val*100)/100;
+      const orderComm=Math.round(val*comm*100)/100;
+      const fee=calcFee(group,val);
+      const sArr=storesByGroup[group]||[];
+      const store=sArr.length?sArr[Math.floor(rng()*sArr.length)]:null;
+      const items=MENUS[store?store.type:'restaurant']||MENUS.restaurant;
+      const item=items[Math.floor(rng()*items.length)];
+      const custIdx=Math.floor(rng()*POOL_SIZE);
+      orderList.push({group,val,comm:orderComm,fee,store,item,custIdx,
+        orderId:`EB-H${key}-${String(i+1).padStart(3,'0')}`,date:new Date(date)});
+    }
+    // Second pass: simulate trip batching — mirrors getDayData pass 2
+    let idx=0;
+    while(idx<orderList.length){
+      const r2=rng();
+      const size=r2<0.20?1:r2<0.50?2:r2<0.75?3:4;
+      const batch=orderList.slice(idx,Math.min(idx+size,orderList.length));
+      batch.forEach(o=>{o.tripSize=batch.length;});
+      idx+=batch.length;
+    }
+    // Push to customer map
+    orderList.forEach(o=>{
+      const cust=pool[o.custIdx];
+      map.get(cust.id).orders.push({
+        date:o.date,
+        storeId:o.store?o.store.id:'',storeName:o.store?o.store.name:'Unknown',
+        storeEmoji:o.store?o.store.emoji:'🛒',group:o.group,val:o.val,comm:o.comm,
+        fee:o.fee,tripSize:o.tripSize,item:o.item,orderId:o.orderId,
+      });
+    });
+  });
+  return map;
+}
+
+// ══════════════════════════════════════════
+// INIT COURIERS
+// ══════════════════════════════════════════
+function initCouriers(){
+  const B={minLat:60.150,maxLat:60.220,minLng:24.880,maxLng:25.080};
+  couriers=COURIER_NAMES.map((name,i)=>({
+    id:`cour_${String(i+1).padStart(2,'0')}`,name,
+    status:i<10?'delivering':i<26?'available':'idle',
+    lat:B.minLat+Math.random()*(B.maxLat-B.minLat),
+    lng:B.minLng+Math.random()*(B.maxLng-B.minLng),
+    tLat:null,tLng:null,nLat:null,nLng:null,phase:'',orderId:null,tripId:null,
+    deliveries:Math.floor(Math.random()*10)+1,
+    rating:+(4.1+Math.random()*0.9).toFixed(1),
+    area:AREAS[i%AREAS.length],phone:randPhone(),
+  }));
+}
+
+// ══════════════════════════════════════════
+// SLA HELPERS
+// ══════════════════════════════════════════
+function ri(a,b){return a+Math.floor(Math.random()*(b-a+1));}
+
+function buildSLA(promisedEta){
+  const s1=ri(10,20),s2=ri(10,20),s3=ri(10,20);
+  return{promisedEta,googleMapsEta:promisedEta+ri(-3,5),stages:[
+    {key:'to_merchant',label:'Courier → Store',promised:s1,googleMaps:s1+ri(-2,3),actual:null,startAt:null,completedAt:null,status:'pending'},
+    {key:'merchant_prep',label:'Store Preparation',promised:s2,googleMaps:s2+ri(-2,3),actual:null,startAt:null,completedAt:null,status:'pending'},
+    {key:'to_customer',label:'Store → Customer',promised:s3,googleMaps:s3+ri(-2,3),actual:null,startAt:null,completedAt:null,status:'pending'},
+  ]};
+}
+
+function calcUrgency(o){
+  if(['resolved','cancelled','paused'].includes(o.urgency))return o.urgency;
+  let maxD=0;
+  o.sla.stages.forEach(st=>{
+    if(st.startAt){const e=(Date.now()-st.startAt)/60000;const a=st.actual||e;const d=a-st.promised;if(d>maxD)maxD=d;}
+  });
+  return maxD>10?'red':maxD>3?'yellow':'green';
+}
+
+function stageDelay(st){if(!st.startAt)return 0;const e=(Date.now()-st.startAt)/60000;return+(( st.actual||e)-st.promised).toFixed(1);}
+function stageElapsed(st){if(!st.startAt)return null;if(st.completedAt)return+((st.completedAt-st.startAt)/60000).toFixed(1);return+((Date.now()-st.startAt)/60000).toFixed(1);}
+function stageDotCls(st){if(st.status==='pending')return'sla-gray';const d=stageDelay(st);return d>10?'sla-red':d>3?'sla-yellow':'sla-green';}
+
+// ══════════════════════════════════════════
+// ORDER CREATION
+// ══════════════════════════════════════════
+function newOrder(direct=false){
+  const store=STORES[Math.floor(Math.random()*STORES.length)];
+  const addr=ADDRS[Math.floor(Math.random()*ADDRS.length)];
+  const items=MENUS[store.type]||MENUS.restaurant;
+  const item=items[Math.floor(Math.random()*items.length)];
+  // QSR: €10–48 (avg ~€29); others: spread around store avgOrder
+  let val;
+  if(store.group==='qsr'){val=Math.round((15+Math.random()*38)*100)/100;}
+  else{const spread=store.avgOrder*0.35;val=Math.round((store.avgOrder-spread/2+Math.random()*spread)*100)/100;}
+  const comm=Math.round(val*getMerchantSetting(store.id,'commission')*100)/100;
+  const fee=calcFee(store.group,val,getMerchantSetting(store.id,'freeDeliveryThreshold'),getMerchantSetting(store.id,'feeUnder'),getMerchantSetting(store.id,'feeOver'));
+  const dLat=store.lat+(Math.random()-.5)*0.04;
+  const dLng=store.lng+(Math.random()-.5)*0.06;
+  const promisedEta=PROMISED_ETAS[Math.floor(Math.random()*PROMISED_ETAS.length)];
+  const isQSR=store.group==='qsr';
+  orderIdCtr++;
+  const o={
+    id:`EB-${orderIdCtr}`,customerId:`cust_${ri(100,999)}`,
+    merchantId:store.id,storeName:store.name,storeEmoji:store.emoji,
+    storeType:store.type,storeGroup:store.group,
+    storeLat:store.lat,storeLng:store.lng,storePhone:randPhone(),
+    courierId:null,tripId:null,addr,item,val,comm,fee,
+    status:'PLACED',statusHistory:[{status:'PLACED',timestamp:Date.now()}],
+    createdAt:Date.now(),statusAt:Date.now(),
+    sla:buildSLA(promisedEta),urgency:'green',fresh:true,dLat,dLng,
+    resolvedBy:null,resolvedAt:null,pausedUntil:null,
+    // queue fields
+    inQueue:!direct,queuedAt:Date.now(),
+    batchWindowMs:isQSR?BATCH_WINDOW_QSR:BATCH_WINDOW_OTHER,
+    etaBufferLabel:isQSR?'⏳ 20 min ETA buffer (QSR)':'⏳ 30 min ETA buffer',
+    batchGroupIdx:null,dispatchedAt:null,
+  };
+  if(direct){
+    o.inQueue=false;
+    orders.unshift(o);ordersToday++;lastHourOrders++;
+    if(orders.length>60)orders.pop();
+  }else{
+    orderQueue.push(o);
+    if(orderQueue.length>40)orderQueue.shift();
+    showNotif(`📥 Queued — ${store.name}`,false);
+  }
+  return o;
+}
+
+// ══════════════════════════════════════════
+// STATUS MACHINE
+// ══════════════════════════════════════════
+const DELAYS={PLACED:9000,CONFIRMED:22000,PREPARING:55000,PICKED_UP:12000,DELIVERING:240000};
+const NEXT_S={PLACED:'CONFIRMED',CONFIRMED:'PREPARING',PREPARING:'PICKED_UP',PICKED_UP:'DELIVERING',DELIVERING:'DELIVERED'};
+
+function advance(o){
+  const n=NEXT_S[o.status];if(!n)return;
+  o.status=n;o.statusAt=Date.now();
+  o.statusHistory.push({status:n,timestamp:Date.now()});
+  if(n==='CONFIRMED'){o.sla.stages[0].startAt=Date.now();o.sla.stages[0].status='active';}
+  if(n==='PICKED_UP'){
+    const s0=o.sla.stages[0];s0.completedAt=Date.now();s0.actual=+((s0.completedAt-s0.startAt)/60000).toFixed(1);s0.status='done';
+    const s1=o.sla.stages[1];s1.startAt=Date.now();s1.status='active';
+    // Only assign courier via legacy path if order is NOT part of a trip
+    if(!o.tripId){
+      const av=couriers.filter(c=>c.status==='available');
+      if(av.length){const c=av[0];c.status='delivering';c.orderId=o.id;c.tLat=o.storeLat;c.tLng=o.storeLng;c.nLat=o.dLat;c.nLng=o.dLng;c.phase='to_store';o.courierId=c.id;}
+    }
+  }
+  if(n==='DELIVERING'){
+    const s1=o.sla.stages[1];s1.completedAt=Date.now();s1.actual=+((s1.completedAt-s1.startAt)/60000).toFixed(1);s1.status='done';
+    const s2=o.sla.stages[2];s2.startAt=Date.now();s2.status='active';
+  }
+  if(n==='DELIVERED'){
+    const s2=o.sla.stages[2];s2.completedAt=Date.now();s2.actual=+((s2.completedAt-s2.startAt)/60000).toFixed(1);s2.status='done';
+    deliveryTimes.push(Math.round((Date.now()-o.createdAt)/60000));if(deliveryTimes.length>30)deliveryTimes.shift();
+    totalRevenue+=o.val;totalCommission+=o.comm;totalFees+=o.fee;
+    // Only free courier via legacy path if NOT a trip order (trips handled by completeTrip)
+    if(!o.tripId){const c=couriers.find(c=>c.id===o.courierId);if(c){c.status='available';c.orderId=null;c.deliveries++;}}
+  }
+}
+
+function tickOrders(){
+  const now=Date.now();
+  orders.forEach(o=>{
+    if(o.inQueue)return; // still in queue, not yet dispatched
+    if(o.urgency==='cancelled'||o.urgency==='resolved')return;
+    if(o.urgency==='paused'&&o.pausedUntil&&now>o.pausedUntil){o.urgency='green';}
+    if(NEXT_S[o.status]&&now-o.statusAt>=DELAYS[o.status])advance(o);
+    if(!['resolved','cancelled','paused'].includes(o.urgency))o.urgency=calcUrgency(o);
+    o.fresh=false;
+  });
+}
+
+// ══════════════════════════════════════════
+// ACTION HANDLERS
+// ══════════════════════════════════════════
+function actionCallCourier(oid){
+  const o=orders.find(x=>x.id===oid);if(!o)return;
+  const c=o.courierId?couriers.find(x=>x.id===o.courierId):null;
+  alert(`📞 Call Courier\n${c?c.name:'Not yet assigned'}\n${c?c.phone:randPhone()}\n\n(Simulated call)`);
+}
+function actionCallMerchant(oid){
+  const o=orders.find(x=>x.id===oid);if(!o)return;
+  alert(`📞 Call Merchant\n${o.storeName}\n${o.storePhone}\n\n(Simulated call)`);
+}
+function actionSolved(oid){
+  const o=orders.find(x=>x.id===oid);if(!o)return;
+  const agent=prompt('Mark as SOLVED — enter your name:','CS Agent');if(!agent)return;
+  o.urgency='resolved';o.resolvedBy=agent;o.resolvedAt=Date.now();
+  showNotif(`✅ ${oid} marked solved by ${agent}`,false);
+  renderOM();if(selectedOrderId===oid)renderOrderDetail(oid);
+}
+function actionCancel(oid){
+  const o=orders.find(x=>x.id===oid);if(!o)return;
+  if(!confirm(`Cancel ${oid} and issue refund of €${o.val.toFixed(2)}?\nThis cannot be undone.`))return;
+  o.status='CANCELLED';o.urgency='cancelled';
+  o.statusHistory.push({status:'CANCELLED',timestamp:Date.now()});
+  const c=o.courierId?couriers.find(x=>x.id===o.courierId):null;
+  if(c&&c.orderId===oid){c.status='available';c.orderId=null;}
+  showNotif(`❌ ${oid} cancelled & refund €${o.val.toFixed(2)} issued`,true);
+  renderOM();if(selectedOrderId===oid)renderOrderDetail(oid);
+}
+function actionPause(oid){
+  const o=orders.find(x=>x.id===oid);if(!o)return;
+  o.urgency='paused';o.pausedUntil=Date.now()+5*60*1000;
+  showNotif(`⏸ ${oid} paused for 5 minutes`,false);
+  renderOM();if(selectedOrderId===oid)renderOrderDetail(oid);
+}
+
+// ══════════════════════════════════════════
+// BATCHING UTILITIES
+// ══════════════════════════════════════════
+function getDist(lat1,lng1,lat2,lng2){
+  return Math.sqrt((lat2-lat1)**2+(lng2-lng1)**2);
+}
+function getBearing(lat1,lng1,lat2,lng2){
+  const dy=lat2-lat1, dx=(lng2-lng1)*Math.cos(lat1*Math.PI/180);
+  return(Math.atan2(dx,dy)*180/Math.PI+360)%360;
+}
+function angleDiff(a,b){const d=Math.abs(a-b)%360;return d>180?360-d:d;}
+function _legKm(lat1,lng1,lat2,lng2){
+  const dlat=(lat2-lat1)*111;
+  const dlng=(lng2-lng1)*111*Math.cos((lat1+lat2)/2*Math.PI/180);
+  return Math.round(Math.sqrt(dlat*dlat+dlng*dlng)*100)/100;
+}
+
+function formBatches(queue){
+  // Assign batchGroupIdx to each queued order
+  // Groups: same merchantId OR nearby merchant (<2km) AND customer bearing within BATCH_ANGLE_TOL
+  const used=new Set();
+  let groupIdx=0;
+  queue.forEach(o=>o.batchGroupIdx=null); // reset
+  for(let i=0;i<queue.length;i++){
+    if(used.has(i))continue;
+    const o=queue[i];
+    const group=[i];
+    used.add(i);
+    const bearingA=getBearing(o.storeLat,o.storeLng,o.dLat,o.dLng);
+    for(let j=i+1;j<queue.length&&group.length<MAX_BATCH;j++){
+      if(used.has(j))continue;
+      const p=queue[j];
+      const sameMerchant=o.merchantId===p.merchantId; // same store always batches
+      const nearMerchant=getDist(o.storeLat,o.storeLng,p.storeLat,p.storeLng)<BATCH_MERGE_RADIUS;
+      const bearingB=getBearing(p.storeLat,p.storeLng,p.dLat,p.dLng);
+      const sameDirCustomer=angleDiff(bearingA,bearingB)<=BATCH_ANGLE_TOL;
+      if(sameMerchant||(nearMerchant&&sameDirCustomer)){group.push(j);used.add(j);}
+    }
+    group.forEach(idx=>queue[idx].batchGroupIdx=groupIdx);
+    groupIdx++;
+  }
+}
+
+function assignTrip(batch,courier){
+  tripIdCtr++;
+  const color=TRIP_COLORS[(tripIdCtr-1)%TRIP_COLORS.length];
+  // Build waypoints: all pickups (unique merchants) first, then all dropoffs
+  const merchantsSeen=new Set();
+  const waypoints=[];
+  batch.forEach(o=>{
+    if(!merchantsSeen.has(o.merchantId)){
+      waypoints.push({lat:o.storeLat,lng:o.storeLng,type:'pickup',ordId:o.id,label:`Pickup @ ${o.storeName}`});
+      merchantsSeen.add(o.merchantId);
+    }
+  });
+  batch.forEach(o=>{
+    waypoints.push({lat:o.dLat,lng:o.dLng,type:'dropoff',ordId:o.id,label:`Dropoff @ ${o.addr}`});
+  });
+
+  const revenue=batch.reduce((s,o)=>s+o.comm+o.fee,0);
+  const trip={
+    id:`TRIP-${String(tripIdCtr).padStart(3,'0')}`,
+    ordIds:batch.map(o=>o.id),
+    courierId:courier.id,
+    color,startAt:Date.now(),completedAt:null,status:'active',
+    waypoints,waypointIdx:0,
+    revenue:Math.round(revenue*100)/100,
+    cost:COURIER_TRIP_COST,
+    profit:Math.round((revenue-COURIER_TRIP_COST)*100)/100,
+  };
+
+  // Move orders from queue to active orders[]
+  batch.forEach(o=>{
+    const qi=orderQueue.indexOf(o);
+    if(qi>-1)orderQueue.splice(qi,1);
+    o.inQueue=false;o.tripId=trip.id;o.dispatchedAt=Date.now();o.courierId=courier.id;
+    orders.unshift(o);ordersToday++;lastHourOrders++;
+  });
+  if(orders.length>60)orders.splice(60);
+
+  // Set courier on trip
+  courier.status='delivering';courier.tripId=trip.id;
+  courier.tLat=waypoints[0].lat;courier.tLng=waypoints[0].lng;
+  courier.phase='trip';
+  trips.push(trip);
+  drawTripPolyline(trip);
+  showNotif(`🚀 Trip ${trip.id} dispatched — ${batch.length} order${batch.length>1?'s':''} · ${courier.name}`,false);
+}
+
+function processBatchQueue(){
+  if(!orderQueue.length)return;
+  formBatches(orderQueue);
+  const now=Date.now();
+  // Gather groups that are ready to dispatch
+  const byGroup={};
+  orderQueue.forEach(o=>{
+    const g=o.batchGroupIdx!==null?o.batchGroupIdx:`solo_${o.id}`; // ungrouped = solo key
+    if(!byGroup[g])byGroup[g]=[];
+    byGroup[g].push(o);
+  });
+  Object.values(byGroup).forEach(group=>{
+    if(!group.length)return;
+    const oldest=group.reduce((a,b)=>a.queuedAt<b.queuedAt?a:b);
+    const windowExpired=now-oldest.queuedAt>=oldest.batchWindowMs;
+    const batchFull=group.length>=MAX_BATCH;
+    if(!windowExpired&&!batchFull)return;
+    // Find available courier
+    const courier=couriers.find(c=>c.status==='available');
+    if(!courier)return;
+    assignTrip(group,courier);
+  });
+}
+
+// ══════════════════════════════════════════
+// COMPLETE TRIP ORDER (called from moveCouriers on dropoff arrival)
+// ══════════════════════════════════════════
+function completeTripOrder(trip,wp){
+  const o=orders.find(x=>x.id===wp.ordId);
+  if(!o||o.status==='DELIVERED')return;
+  // Force all SLA stages done
+  const now=Date.now();
+  o.sla.stages.forEach(st=>{
+    if(!st.startAt){st.startAt=o.dispatchedAt||now;st.status='active';}
+    if(!st.completedAt){st.completedAt=now;st.actual=+((st.completedAt-st.startAt)/60000).toFixed(1);st.status='done';}
+  });
+  o.status='DELIVERED';o.statusAt=now;
+  o.statusHistory.push({status:'DELIVERED',timestamp:now});
+  o.urgency='green';
+  deliveryTimes.push(Math.round((now-o.createdAt)/60000));
+  if(deliveryTimes.length>30)deliveryTimes.shift();
+  totalRevenue+=o.val;totalCommission+=o.comm;totalFees+=o.fee;
+}
+
+function completeTrip(trip,courier){
+  trip.status='completed';trip.completedAt=Date.now();
+  totalTripCosts+=COURIER_TRIP_COST;
+  removeTripPolyline(trip.id);
+  courier.status='available';courier.tripId=null;courier.tLat=null;courier.tLng=null;courier.phase='';
+  courier.deliveries+=trip.ordIds.length;
+}
+
+// ══════════════════════════════════════════
+// COURIER MOVEMENT
+// ══════════════════════════════════════════
+const STEP=0.001;
+function moveCouriers(){
+  couriers.forEach(c=>{
+    if(c.status==='delivering'&&c.tLat!=null){
+      const dlat=c.tLat-c.lat,dlng=c.tLng-c.lng,d=Math.sqrt(dlat*dlat+dlng*dlng);
+      if(d<STEP){
+        c.lat=c.tLat;c.lng=c.tLng;
+        if(c.tripId){
+          // Trip-based movement
+          const trip=trips.find(t=>t.id===c.tripId);
+          if(trip){
+            const wp=trip.waypoints[trip.waypointIdx];
+            if(wp&&wp.type==='dropoff')completeTripOrder(trip,wp);
+            trip.waypointIdx++;
+            if(trip.waypointIdx<trip.waypoints.length){
+              const next=trip.waypoints[trip.waypointIdx];
+              c.tLat=next.lat;c.tLng=next.lng;
+            }else{
+              completeTrip(trip,c);
+            }
+          }
+        }else{
+          // Legacy single-order movement
+          if(c.phase==='to_store'&&c.nLat){c.phase='to_customer';c.tLat=c.nLat;c.tLng=c.nLng;}
+          else c.tLat=null;
+        }
+      }else{c.lat+=dlat/d*STEP;c.lng+=dlng/d*STEP;}
+    }else if(c.status==='available'&&Math.random()<0.04){c.lat+=(Math.random()-.5)*0.0018;c.lng+=(Math.random()-.5)*0.0025;}
+    updateCMarker(c);
+  });
+}
+
+// ══════════════════════════════════════════
+// MAP
+// ══════════════════════════════════════════
+function cIcon(c){
+  const col=c.status==='delivering'?'#0dcaf0':c.status==='available'?'#52b043':'#adb5bd';
+  const ini=c.name.split(' ').map(p=>p[0]).join('');
+  return L.divIcon({html:`<div style="width:22px;height:22px;border-radius:50%;background:${col};border:2px solid #fff;box-shadow:0 1px 5px rgba(0,0,0,.3);display:flex;align-items:center;justify-content:center;font-size:8px;font-weight:800;color:#fff">${ini}</div>`,className:'',iconAnchor:[11,11]});
+}
+function initMap(){
+  map=L.map('map',{zoomControl:true,attributionControl:false}).setView([60.1699,24.9384],13);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19}).addTo(map);
+  L.control.attribution({prefix:'© OpenStreetMap'}).addTo(map);
+  STORES.forEach(s=>{
+    const bg=s.group==='darkstore'?'#1a2e1c':'#fff';
+    const ic=L.divIcon({html:`<div style="background:${bg};border:2px solid #52b043;border-radius:8px;padding:2px 5px;font-size:14px;box-shadow:0 2px 8px rgba(0,0,0,.2)">${s.emoji}</div>`,className:'',iconAnchor:[14,14]});
+    L.marker([s.lat,s.lng],{icon:ic}).addTo(map).bindPopup(`<b>${s.name}</b><br><small>${s.type} | ${(s.commission*100).toFixed(0)}% commission</small><br>⭐ ${s.rating}`);
+  });
+  couriers.forEach(c=>{
+    const m=L.marker([c.lat,c.lng],{icon:cIcon(c)}).addTo(map).bindPopup(`<b>${c.name}</b><br>${c.area} | ⭐ ${c.rating}`);
+    courierMarkers[c.id]={marker:m};
+  });
+}
+function initFleetMap(){
+  if(fleetMapInit)return;fleetMapInit=true;
+  fleetMap=L.map('fleet-map',{zoomControl:true,attributionControl:false}).setView([60.1699,24.9384],13);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19}).addTo(fleetMap);
+  L.control.attribution({prefix:'© OpenStreetMap'}).addTo(fleetMap);
+  couriers.forEach(c=>{
+    const m=L.marker([c.lat,c.lng],{icon:cIcon(c)}).addTo(fleetMap).bindPopup(`<b>${c.name}</b><br>${c.area}<br>Deliveries: ${c.deliveries} | ⭐ ${c.rating}`);
+    fleetMarkers[c.id]={marker:m};
+  });
+  // Draw any already-active trip polylines onto fleet map
+  trips.filter(t=>t.status==='active').forEach(trip=>{
+    const lls=buildTripLatLngs(trip);
+    if(lls.length>=2){
+      const flPl=L.polyline(lls,{color:trip.color,weight:3,opacity:0.75,dashArray:'6 4'}).addTo(fleetMap);
+      if(tripPolylines[trip.id])tripPolylines[trip.id].fleet=flPl;
+      else tripPolylines[trip.id]={main:null,fleet:flPl};
+    }
+  });
+}
+function updateCMarker(c){
+  [courierMarkers,fleetMarkers].forEach(mp=>{const m=mp[c.id];if(!m)return;m.marker.setLatLng([c.lat,c.lng]);m.marker.setIcon(cIcon(c));});
+}
+
+// ══════════════════════════════════════════
+// TRIP POLYLINES
+// ══════════════════════════════════════════
+function buildTripLatLngs(trip){
+  const courier=couriers.find(c=>c.id===trip.courierId);
+  const lls=[];
+  if(courier)lls.push([courier.lat,courier.lng]);
+  // Remaining waypoints from current index onward
+  for(let i=trip.waypointIdx;i<trip.waypoints.length;i++){
+    lls.push([trip.waypoints[i].lat,trip.waypoints[i].lng]);
+  }
+  return lls;
+}
+
+function drawTripPolyline(trip){
+  if(!map)return;
+  const lls=buildTripLatLngs(trip);
+  if(lls.length<2)return;
+  const pl=L.polyline(lls,{color:trip.color,weight:3,opacity:0.75,dashArray:'6 4'}).addTo(map);
+  let flPl=null;
+  if(fleetMap&&fleetMapInit)flPl=L.polyline(lls,{color:trip.color,weight:3,opacity:0.75,dashArray:'6 4'}).addTo(fleetMap);
+  tripPolylines[trip.id]={main:pl,fleet:flPl};
+}
+
+function updateTripPolylines(){
+  trips.forEach(trip=>{
+    if(trip.status!=='active')return;
+    const lls=buildTripLatLngs(trip);
+    const existing=tripPolylines[trip.id];
+    if(!existing){drawTripPolyline(trip);return;}
+    if(lls.length>=2){
+      existing.main&&existing.main.setLatLngs(lls);
+      existing.fleet&&existing.fleet.setLatLngs(lls);
+    }
+  });
+}
+
+function removeTripPolyline(tripId){
+  const p=tripPolylines[tripId];
+  if(!p)return;
+  if(p.main)try{map&&map.removeLayer(p.main);}catch(e){}
+  if(p.fleet)try{fleetMap&&fleetMap.removeLayer(p.fleet);}catch(e){}
+  delete tripPolylines[tripId];
+}
+
+// ══════════════════════════════════════════
+// RENDER — DASHBOARD
+// ══════════════════════════════════════════
+function renderDashboard(){
+  const active=orders.filter(o=>o.status!=='DELIVERED'&&o.urgency!=='cancelled').slice(0,12);
+  const done=orders.filter(o=>o.status==='DELIVERED').slice(0,4);
+  document.getElementById('activeCount').textContent=active.length;
+  document.getElementById('orderFeed').innerHTML=[...active,...done].slice(0,15).map(o=>{
+    const c=o.courierId?couriers.find(x=>x.id===o.courierId):null;
+    return`<div class="ocard urg-${o.urgency}${o.fresh?' fresh':''}">
+      <div class="oc-top"><span class="oc-id">${o.id}</span><span class="oc-time">${fmtTime(o.createdAt)}</span></div>
+      <div class="oc-store">${o.storeEmoji} ${o.storeName}</div>
+      <div class="oc-addr">📍 ${o.addr}</div>
+      <div class="oc-bot"><span class="oc-val">€${o.val.toFixed(2)}</span><span class="sbadge s-${o.status}">${fmtStatus(o.status)}</span><span class="utag utag-${o.urgency}">${urgLbl(o.urgency)}</span></div>
+      <div class="oc-eta">ETA: ${o.sla.promisedEta}min${c?' • 🛵 '+c.name:''}</div>
+    </div>`;
+  }).join('');
+}
+
+// ══════════════════════════════════════════
+// RENDER — ORDER MANAGEMENT
+// ══════════════════════════════════════════
+function setOMView(v,btn){
+  omView=v;
+  document.querySelectorAll('.om-toggle').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('omList').style.display=v==='orders'?'block':'none';
+  document.getElementById('queueList').style.display=v==='queue'?'block':'none';
+  document.getElementById('omFiltersRow').style.display=v==='orders'?'flex':'none';
+  document.querySelector('.om-stats-row').style.display=v==='orders'?'flex':'none';
+  if(v==='queue')renderQueue();else renderOM();
+}
+
+function renderQueue(){
+  const q=orderQueue;
+  document.getElementById('omQueueBadge').textContent=q.length;
+  const el=document.getElementById('queueList');
+  if(!q.length){el.innerHTML=`<div class="queue-empty">🟢 Queue is empty<br><span style="font-size:11px">Orders dispatch when batch window expires or 4 orders are ready</span></div>`;return;}
+
+  // Count batch groups
+  const groups={};
+  q.forEach(o=>{if(o.batchGroupIdx!==null)(groups[o.batchGroupIdx]=(groups[o.batchGroupIdx]||0)+1);});
+
+  const summary=`<div class="queue-summary"><span><b>${q.length}</b> orders waiting</span><span><b>${Object.keys(groups).length||0}</b> batch groups forming</span></div>`;
+
+  const cards=q.map(o=>{
+    const remaining=Math.max(0,o.batchWindowMs-(Date.now()-o.queuedAt));
+    const sec=Math.floor(remaining/1000);
+    const mm=String(Math.floor(sec/60)).padStart(2,'0');
+    const ss=String(sec%60).padStart(2,'0');
+    const urgent=remaining<15000;
+    const borderCol=o.batchGroupIdx!==null?TRIP_COLORS[o.batchGroupIdx%TRIP_COLORS.length]:'#adb5bd';
+    const batchTag=o.batchGroupIdx!==null
+      ?`<span class="qc-batch" style="background:${borderCol}">Batch #${o.batchGroupIdx+1} (${groups[o.batchGroupIdx]||1})</span>`
+      :`<span class="qc-buffer">ungrouped</span>`;
+    const expired=remaining<=0;
+    return`<div class="queue-card" style="border-left-color:${borderCol}">
+      <div class="qc-top">
+        <span class="qc-id">${o.id}</span>
+        <span class="countdown${urgent?' urgent':''}">${expired?'⚡ dispatching…':mm+':'+ss}</span>
+      </div>
+      <div class="qc-store">${o.storeEmoji} ${o.storeName}</div>
+      <div class="qc-item">🛍 ${o.item} &nbsp;·&nbsp; 📍 ${o.addr}</div>
+      <div class="qc-bot">
+        <span style="font-size:13px;font-weight:700">€${o.val.toFixed(2)}</span>
+        ${batchTag}
+        <span class="qc-buffer">${o.etaBufferLabel}</span>
+      </div>
+    </div>`;
+  }).join('');
+
+  el.innerHTML=summary+cards;
+}
+
+function setOMFilter(f,btn){omFilter=f;document.querySelectorAll('.filter-btn').forEach(b=>b.classList.remove('active'));btn.classList.add('active');renderOM();}
+
+function renderOM(){
+  // Update queue badge always
+  document.getElementById('omQueueBadge').textContent=orderQueue.length;
+  document.getElementById('omOrdersBadge').textContent=orders.filter(o=>!o.inQueue&&o.status!=='DELIVERED'&&o.urgency!=='cancelled').length;
+  // If in queue view, render queue and skip orders list
+  if(omView==='queue'){renderQueue();return;}
+  const reds=orders.filter(o=>o.urgency==='red');
+  const yellows=orders.filter(o=>o.urgency==='yellow');
+  document.getElementById('omTotal').textContent=orders.length;
+  document.getElementById('omRed').textContent=reds.length;
+  document.getElementById('omYellow').textContent=yellows.length;
+  document.getElementById('omGreen').textContent=orders.filter(o=>o.urgency==='green'&&o.status!=='DELIVERED').length;
+  document.getElementById('omAlertDot').classList.toggle('show',reds.length>0);
+  let list;
+  if(omFilter==='red')list=reds;
+  else if(omFilter==='yellow')list=yellows;
+  else if(omFilter==='active')list=orders.filter(o=>o.status!=='DELIVERED'&&o.urgency!=='cancelled');
+  else if(omFilter==='done')list=orders.filter(o=>o.status==='DELIVERED'||o.urgency==='cancelled'||o.urgency==='resolved');
+  else list=orders;
+  const urgPri={red:0,yellow:1,green:2,paused:3,resolved:4,cancelled:5};
+  list=[...list].sort((a,b)=>{
+    const ap=(a.status==='DELIVERED'&&!['red','yellow'].includes(a.urgency))?4:(urgPri[a.urgency]??2);
+    const bp=(b.status==='DELIVERED'&&!['red','yellow'].includes(b.urgency))?4:(urgPri[b.urgency]??2);
+    return ap!==bp?ap-bp:b.createdAt-a.createdAt;
+  });
+  document.getElementById('omList').innerHTML=list.map(o=>{
+    const c=o.courierId?couriers.find(x=>x.id===o.courierId):null;
+    const elapsed=+((Date.now()-o.createdAt)/60000).toFixed(0);
+    const dots=o.sla.stages.map(st=>`<div class="sla-dot ${stageDotCls(st)}" title="${st.label}"></div>`).join('');
+    return`<div class="om-card urg-${o.urgency}${o.id===selectedOrderId?' selected':''}" onclick="selectOrder('${o.id}')">
+      <div class="om-top"><span class="om-id">${o.id}</span><span class="utag utag-${o.urgency}">${urgLbl(o.urgency)}</span></div>
+      <div class="om-store">${o.storeEmoji} ${o.storeName}</div>
+      <div class="om-meta"><span>📍 ${o.addr}</span><span>⏱ ${elapsed}m / ${o.sla.promisedEta}min ETA</span></div>
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <span class="sbadge s-${o.status}">${fmtStatus(o.status)}</span>
+        <div class="om-sla-mini">${dots}</div>
+        <span style="font-size:12px;font-weight:700">€${o.val.toFixed(2)}</span>
+      </div>
+      ${c?`<div style="font-size:10px;color:var(--muted2);margin-top:3px">🛵 ${c.name}</div>`:''}
+      ${o.resolvedBy?`<div style="font-size:10px;color:var(--green);margin-top:2px">✅ Resolved by ${o.resolvedBy}</div>`:''}
+    </div>`;
+  }).join('')||`<div style="padding:30px;text-align:center;color:var(--muted2)">No orders match this filter</div>`;
+}
+
+function selectOrder(id){selectedOrderId=id;renderOM();renderOrderDetail(id);}
+
+function renderOrderDetail(id){
+  const o=orders.find(x=>x.id===id);
+  if(!o){document.getElementById('detailEmpty').style.display='flex';document.getElementById('detailContent').style.display='none';return;}
+  document.getElementById('detailEmpty').style.display='none';document.getElementById('detailContent').style.display='block';
+  const c=o.courierId?couriers.find(x=>x.id===o.courierId):null;
+  const elapsed=+((Date.now()-o.createdAt)/60000).toFixed(1);
+  const overallDelay=+(elapsed-o.sla.promisedEta).toFixed(1);
+  const canAct=o.status!=='DELIVERED'&&o.urgency!=='cancelled';
+
+  const stagesHTML=o.sla.stages.map((st,i)=>{
+    const elap=stageElapsed(st),delay=stageDelay(st);
+    const dc=delay>10?'delay-crit':delay>3?'delay-warn':'delay-ok';
+    const pct=elap?Math.min(100,Math.round(elap/st.promised*100)):0;
+    const barCol=delay>10?'#dc2626':delay>3?'#f59e0b':'#52b043';
+    const cardCls=st.status!=='pending'?(delay>10?'urg-red':delay>3?'urg-yellow':''):'';
+    const remain=st.startAt&&!st.completedAt?Math.max(0,st.promised-((Date.now()-st.startAt)/60000)).toFixed(0):null;
+    return`<div class="stage-card ${cardCls}">
+      <div class="stage-name">${i+1}. ${st.label} <span class="sbadge ${st.status==='done'?'s-DELIVERED':st.status==='active'?'s-DELIVERING':'s-PLACED'}" style="margin-left:6px;font-size:9px">${st.status}</span></div>
+      <div class="stage-grid">
+        <div class="stage-cell"><div class="sc-lbl">Promised</div><div class="sc-val">${st.promised} min</div><div class="sc-sub">to customer</div></div>
+        <div class="stage-cell"><div class="sc-lbl">Maps Est.</div><div class="sc-val">${st.googleMaps} min</div><div class="sc-sub">Google Maps</div></div>
+        <div class="stage-cell"><div class="sc-lbl">${st.completedAt?'Actual':'Elapsed'}</div><div class="sc-val ${elap?dc:''}">${elap!==null?elap+' min':'—'}</div><div class="sc-sub">${st.startAt?fmtTimeMs(st.startAt):'waiting'}</div></div>
+        <div class="stage-cell"><div class="sc-lbl">Delay</div><div class="sc-val ${elap?dc:''}">${elap!==null?(delay>=0?'+':'')+delay+' min':'—'}</div><div class="sc-sub">${remain!==null?'~'+remain+'m left':'—'}</div></div>
+      </div>
+      ${elap?`<div class="stage-bar"><div class="stage-bar-fill" style="width:${pct}%;background:${barCol}"></div></div>`:''}
+    </div>`;
+  }).join('');
+
+  const tlHTML=o.statusHistory.map((h,i)=>{
+    const isCur=i===o.statusHistory.length-1&&!['DELIVERED','CANCELLED'].includes(o.status);
+    return`<div class="tl-item"><div class="tl-dot ${isCur?'current':''}"></div><div><div class="tl-status">${fmtStatus(h.status)}</div><div class="tl-time">${fmtTimeMs(h.timestamp)}</div></div></div>`;
+  }).join('');
+
+  const actions=canAct?`<div class="action-bar">
+    <button class="action-btn btn-call" onclick="actionCallCourier('${o.id}')">📞 Call Courier</button>
+    <button class="action-btn btn-call" onclick="actionCallMerchant('${o.id}')">📞 Call Merchant</button>
+    <button class="action-btn btn-solved" onclick="actionSolved('${o.id}')">✅ Solved</button>
+    <button class="action-btn btn-cancel" onclick="actionCancel('${o.id}')">❌ Cancel &amp; Refund</button>
+    <button class="action-btn btn-pause" onclick="actionPause('${o.id}')">⏸ Pause 5min</button>
+  </div>`:'';
+  const resBox=o.resolvedBy?`<div class="resolution-box">✅ <b>Resolved</b> by <b>${o.resolvedBy}</b> at ${fmtTimeMs(o.resolvedAt)} — urgency overridden to green</div>`:'';
+  const pauseBox=o.urgency==='paused'&&o.pausedUntil?`<div class="paused-box">⏸ <b>Paused</b> until ${fmtTimeMs(o.pausedUntil)} — will auto-revert to SLA tracking</div>`:'';
+
+  document.getElementById('detailContent').innerHTML=`
+    <div class="detail-header">
+      <div><div class="detail-title">${o.id}</div>
+        <div class="detail-sub">${o.storeEmoji} ${o.storeName} → 📍 ${o.addr}<br>🛍 ${o.item}<br>${c?`🛵 ${c.name} (${c.area})`:'🛵 Courier not assigned yet'}<br>Customer: ${o.customerId}</div></div>
+      <div style="display:flex;flex-direction:column;align-items:flex-end;gap:5px">
+        <div class="detail-val">€${(o.val+o.fee).toFixed(2)}</div>
+        <span class="sbadge s-${o.status}">${fmtStatus(o.status)}</span>
+        <span class="utag utag-${o.urgency}">${urgLbl(o.urgency)}</span>
+      </div>
+    </div>
+    ${resBox}${pauseBox}${actions}
+    <div class="detail-section">
+      <div class="ds-head">ETA Summary</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:12px;text-align:center">
+        <div><div class="sc-lbl">Promised to customer</div><div style="font-size:18px;font-weight:800;color:var(--green)">${o.sla.promisedEta} min</div></div>
+        <div><div class="sc-lbl">Google Maps predicted</div><div style="font-size:18px;font-weight:800;color:var(--blue)">${o.sla.googleMapsEta} min</div></div>
+        <div><div class="sc-lbl">Total elapsed</div><div style="font-size:18px;font-weight:800;color:${elapsed>o.sla.promisedEta?'var(--red)':'var(--green)'}">${elapsed} min</div></div>
+        <div><div class="sc-lbl">Overall delay</div><div style="font-size:18px;font-weight:800;color:${overallDelay>10?'var(--red)':overallDelay>3?'var(--yellow)':'var(--green)'}">${overallDelay>=0?'+':''}${overallDelay} min</div></div>
+      </div>
+    </div>
+    <div class="detail-section"><div class="ds-head">SLA per Stage</div>${stagesHTML}</div>
+    <div class="detail-section"><div class="ds-head">Status Timeline</div>${tlHTML}</div>`;
+}
+
+// ══════════════════════════════════════════
+// RENDER — STATS BAR
+// ══════════════════════════════════════════
+function renderStats(){
+  const online=couriers.filter(c=>c.status!=='idle').length;
+  const del=couriers.filter(c=>c.status==='delivering').length;
+  const reds=orders.filter(o=>o.urgency==='red').length;
+  const yellows=orders.filter(o=>o.urgency==='yellow').length;
+  document.getElementById('sOrders').textContent=ordersToday;
+  document.getElementById('sOrdersSub').textContent=`${lastHourOrders} last hour`;
+  document.getElementById('sCouriers').innerHTML=`${online}<span style="font-size:14px;color:var(--muted2)">/35</span>`;
+  document.getElementById('sDelivering').textContent=`${del} delivering now`;
+  const avg=deliveryTimes.length?Math.round(deliveryTimes.reduce((a,b)=>a+b,0)/deliveryTimes.length):'—';
+  document.getElementById('sAvgTime').textContent=avg;
+  document.getElementById('sRevenue').textContent=`€${(totalRevenue+totalFees).toFixed(0)}`;
+  document.getElementById('sCommission').textContent=`€${totalCommission.toFixed(0)} commission`;
+  document.getElementById('sSLA').textContent=reds+yellows;
+  document.getElementById('sSLA').style.color=reds>0?'var(--red)':yellows>0?'var(--yellow)':'var(--green)';
+  document.getElementById('sSLAsub').textContent=reds>0?`${reds} critical, ${yellows} warning`:yellows>0?`${yellows} warning`:'all green';
+}
+
+// ══════════════════════════════════════════
+// RENDER — FLEET
+// ══════════════════════════════════════════
+function renderFleet(){
+  document.getElementById('fleetOnlineCount').textContent=couriers.filter(c=>c.status!=='idle').length;
+  document.getElementById('fDelivering').textContent=couriers.filter(c=>c.status==='delivering').length;
+  document.getElementById('fAvailable').textContent=couriers.filter(c=>c.status==='available').length;
+  document.getElementById('fIdle').textContent=couriers.filter(c=>c.status==='idle').length;
+  document.getElementById('fTotalDel').textContent=couriers.reduce((a,c)=>a+c.deliveries,0);
+  document.getElementById('courierTableBody').innerHTML=couriers.map(c=>{
+    const cls=c.status==='delivering'?'cs-delivering':c.status==='available'?'cs-available':'cs-idle';
+    return`<tr><td class="c-name">${c.name}</td><td><span class="c-status ${cls}">${c.status==='delivering'?'Delivering':c.status==='available'?'Available':'Offline'}</span></td><td style="color:var(--muted);font-size:11px">${c.area}</td><td style="font-weight:600">${c.deliveries}</td><td>⭐ ${c.rating}</td></tr>`;
+  }).join('');
+  renderFleetStats();
+}
+
+function getFleetCourierStats(){
+  return couriers.map((c,i)=>{
+    const rng=mulberry32(8000+i);
+    rng(); // warmup
+    const regDays=Math.floor(rng()*365);       // call 1: registered day offset in 2025
+    const baseDailyOrders=3+Math.floor(rng()*10); // call 2: 3–12 orders/day
+    rng();                                      // call 3: skip (reserved)
+    const eph=8+rng()*32;                       // call 4: €8–40/hr
+    const activeDel=Math.floor(rng()*4);        // call 5: 0–3 active deliveries/hr
+    const refundPct=Math.round(rng()*100)/10;   // call 6: 0.0–10.0%
+    const variation=0.7+rng()*0.6;             // call 7: 0.70–1.30 period multiplier
+    const regDate=new Date(2025,0,1+regDays);
+    const ds=`${String(regDate.getDate()).padStart(2,'0')}.${String(regDate.getMonth()+1).padStart(2,'0')}.2025`;
+    let periodOrders;
+    if(fleetPeriod==='today')      periodOrders=c.deliveries+Math.floor(rng()*3);
+    else if(fleetPeriod==='week')  periodOrders=Math.round(baseDailyOrders*7*variation);
+    else if(fleetPeriod==='month') periodOrders=Math.round(baseDailyOrders*30*variation);
+    else                           periodOrders=Math.round(baseDailyOrders*14*variation);
+    return{id:c.id,name:c.name,registered:ds,regSort:regDate.getTime(),orders:periodOrders,activeDel,eph:Math.round(eph*10)/10,refundPct};
+  });
+}
+function setFleetPeriod(p,btn){
+  fleetPeriod=p;
+  document.querySelectorAll('.fleet-period-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  renderFleetStats();
+}
+function sortFleetTable(col){
+  if(fleetSort===col)fleetSortDir*=-1;
+  else{fleetSort=col;fleetSortDir=1;}
+  renderFleetStats();
+}
+function renderFleetStats(){
+  const body=document.getElementById('fleetStatsBody');
+  if(!body)return;
+  const data=getFleetCourierStats();
+  ['name','registered','orders','activeDel','eph','refundPct'].forEach(col=>{
+    const el=document.getElementById('flSort-'+col);
+    if(el)el.textContent=fleetSort===col?(fleetSortDir===1?' ↑':' ↓'):'';
+  });
+  const key=fleetSort==='registered'?'regSort':fleetSort;
+  data.sort((a,b)=>{const av=a[key],bv=b[key];return fleetSortDir*(typeof av==='string'?av.localeCompare(bv):av-bv);});
+  body.innerHTML=data.map(d=>`<tr>
+    <td style="font-weight:600">${d.name}</td>
+    <td style="color:var(--muted);font-size:11px">${d.registered}</td>
+    <td style="font-weight:600">${d.orders}</td>
+    <td>${d.activeDel}</td>
+    <td style="color:var(--green)">€${d.eph.toFixed(1)}</td>
+    <td style="${d.refundPct>7?'color:var(--red)':d.refundPct>4?'color:#d97706':''}">${d.refundPct.toFixed(1)}%</td>
+  </tr>`).join('');
+}
+
+// ══════════════════════════════════════════
+// TRIP INTELLIGENCE — expand row renderer
+// ══════════════════════════════════════════
+function _renderTripIntelRow(o,trip,courier,tripOrders){
+  const tripSize=trip.ordIds.length;
+  const isActive=trip.status==='active';
+  const statusBadge=isActive
+    ?'<span style="font-size:10px;background:#dcfce7;color:#166534;padding:1px 7px;border-radius:10px;font-weight:700">Active</span>'
+    :'<span style="font-size:10px;background:#f0f0f0;color:#555;padding:1px 7px;border-radius:10px;font-weight:700">Completed</span>';
+  // Route sequence — walk waypoints in trip order, highlight this order's stops
+  const myPickupLabel='Pickup @ '+o.storeName;
+  const legKms=trip.waypoints.slice(1).map((w,i)=>_legKm(trip.waypoints[i].lat,trip.waypoints[i].lng,w.lat,w.lng));
+  const totalKm=Math.round(legKms.reduce((s,k)=>s+k,0)*100)/100;
+  const routeItems=[];
+  trip.waypoints.forEach((w,i)=>{
+    const isPickup=w.type==='pickup';
+    const isMine=isPickup?(w.label===myPickupLabel):(w.ordId===o.id);
+    const badge=isPickup
+      ?'<span style="font-size:10px;background:#dbeafe;color:#1d4ed8;padding:1px 6px;border-radius:4px;font-weight:700;flex-shrink:0">PICKUP</span>'
+      :'<span style="font-size:10px;background:#fef9c3;color:#854d0e;padding:1px 6px;border-radius:4px;font-weight:700;flex-shrink:0">DROPOFF</span>';
+    const name=w.label.replace('Pickup @ ','').replace('Dropoff @ ','');
+    const ordTag=!isPickup?`<span style="font-family:monospace;color:var(--muted2);font-size:10px">${w.ordId}</span>`:'';
+    const hl=isMine?'background:#f0fdf4;border-left:2px solid var(--green);padding-left:4px;border-radius:2px;':'';
+    routeItems.push(`<div style="${hl}display:flex;align-items:center;gap:7px;padding:3px 2px;font-size:12px">
+      <span style="width:14px;text-align:right;color:var(--muted2);font-size:10px;flex-shrink:0">${i+1}</span>
+      ${badge}
+      <span style="color:var(--text)">${name}</span>
+      ${ordTag}
+    </div>`);
+    if(i<trip.waypoints.length-1)routeItems.push(`<div style="padding-left:21px;color:var(--muted2);font-size:10px;line-height:1.4">↓ ${legKms[i].toFixed(2)} km</div>`);
+  });
+  const routeHTML=routeItems.join('');
+  // Cost metrics
+  const costPerOrd=(COURIER_TRIP_COST/tripSize).toFixed(2);
+  const costPerKm=totalKm>0?(COURIER_TRIP_COST/totalKm).toFixed(2):'—';
+  // Route stats
+  const pickupCount=trip.waypoints.filter(w=>w.type==='pickup').length;
+  const dropoffCount=trip.waypoints.filter(w=>w.type==='dropoff').length;
+  const pickupKm=Math.round(legKms.filter((_,i)=>trip.waypoints[i].type==='pickup').reduce((s,k)=>s+k,0)*100)/100;
+  const lastMileKm=Math.round(legKms.filter((_,i)=>trip.waypoints[i].type==='dropoff').reduce((s,k)=>s+k,0)*100)/100;
+  const avgKmPerOrd=tripSize>0?Math.round(totalKm/tripSize*100)/100:0;
+  const longestLeg=legKms.length>0?Math.max(...legKms):0;
+  // Timing (preserved from original)
+  const prepMin={restaurant:15,darkstore:5,qsr:10,other:5}[o.storeGroup]||10;
+  const dropoffs=trip.waypoints.filter(w=>w.type==='dropoff');
+  const pos=Math.max(0,dropoffs.findIndex(w=>w.ordId===o.id));
+  const deliveryMin=20+pos*10;
+  const totalMin=1+3+prepMin+deliveryMin;
+  return`<tr><td colspan="11" class="ao-expand-row" style="padding:10px 16px">
+    <div style="display:flex;flex-direction:column;gap:9px">
+      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+        <span style="color:var(--blue);font-weight:700;font-size:13px">${trip.id}</span>
+        <span style="color:var(--muted2)">·</span>
+        <span style="font-size:12px">🛵 <b>${courier?courier.name:'—'}</b></span>
+        ${statusBadge}
+        <span style="background:var(--green-light);color:var(--dark);font-size:11px;padding:1px 8px;border-radius:10px;font-weight:600">${tripSize} ${tripSize===1?'order':'orders'}</span>
+      </div>
+      <div>
+        <div style="font-size:10px;font-weight:700;color:var(--muted2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">Route</div>
+        <div style="border-left:2px solid var(--border);padding-left:10px;display:flex;flex-direction:column">
+          ${routeHTML}
+        </div>
+      </div>
+      <div style="display:flex;gap:20px;flex-wrap:wrap;border-top:1px solid var(--border);padding-top:7px">
+        <div><div style="font-size:10px;color:var(--muted2);text-transform:uppercase;letter-spacing:.5px">Orders</div><div style="font-weight:700;font-size:13px">${tripSize}</div></div>
+        <div><div style="font-size:10px;color:var(--muted2);text-transform:uppercase;letter-spacing:.5px">Trip Cost</div><div style="font-weight:700;font-size:13px;color:var(--red)">€${COURIER_TRIP_COST.toFixed(2)}</div></div>
+        <div><div style="font-size:10px;color:var(--muted2);text-transform:uppercase;letter-spacing:.5px">Cost / Order</div><div style="font-weight:700;font-size:13px;color:var(--red)">€${costPerOrd}</div></div>
+        <div><div style="font-size:10px;color:var(--muted2);text-transform:uppercase;letter-spacing:.5px">Total km</div><div style="font-weight:700;font-size:13px">${totalKm.toFixed(2)} km</div></div>
+        <div><div style="font-size:10px;color:var(--muted2);text-transform:uppercase;letter-spacing:.5px">Cost / km</div><div style="font-weight:700;font-size:13px;color:var(--red)">€${costPerKm}</div></div>
+      </div>
+      <div style="display:flex;gap:20px;flex-wrap:wrap;border-top:1px solid var(--border);padding-top:7px">
+        <div><div style="font-size:10px;color:var(--muted2);text-transform:uppercase;letter-spacing:.5px">Pickups</div><div style="font-weight:700;font-size:13px">${pickupCount}</div></div>
+        <div><div style="font-size:10px;color:var(--muted2);text-transform:uppercase;letter-spacing:.5px">Dropoffs</div><div style="font-weight:700;font-size:13px">${dropoffCount}</div></div>
+        <div><div style="font-size:10px;color:var(--muted2);text-transform:uppercase;letter-spacing:.5px">Pickup km</div><div style="font-weight:700;font-size:13px">${pickupKm.toFixed(2)} km</div></div>
+        <div><div style="font-size:10px;color:var(--muted2);text-transform:uppercase;letter-spacing:.5px">Last-mile km</div><div style="font-weight:700;font-size:13px">${lastMileKm.toFixed(2)} km</div></div>
+        <div><div style="font-size:10px;color:var(--muted2);text-transform:uppercase;letter-spacing:.5px">Avg km / order</div><div style="font-weight:700;font-size:13px">${avgKmPerOrd.toFixed(2)} km</div></div>
+        <div><div style="font-size:10px;color:var(--muted2);text-transform:uppercase;letter-spacing:.5px">Longest leg</div><div style="font-weight:700;font-size:13px">${longestLeg.toFixed(2)} km</div></div>
+      </div>
+      <div style="color:var(--muted);font-size:11px">⏱ Courier accepts: 1 min → Merchant accepts: 3 min → Prep: ${prepMin} min → Delivery (client ${pos+1}): ${deliveryMin} min &nbsp;·&nbsp; <b>Est. total: ${totalMin} min</b></div>
+    </div>
+  </td></tr>`;
+}
+
+// ══════════════════════════════════════════
+// RENDER — ADMIN
+// ══════════════════════════════════════════
+function renderAdminOrders(){
+  const done=orders.filter(o=>o.status==='DELIVERED');
+  document.getElementById('aOrders').textContent=ordersToday;
+  document.getElementById('aDelivered').textContent=done.length;
+  const allVal=orders.reduce((a,o)=>a+o.val+o.fee,0);
+  document.getElementById('aAvgVal').textContent=orders.length?`€${(allVal/orders.length).toFixed(2)}`:'—';
+  document.getElementById('aCommission').textContent=`€${totalCommission.toFixed(2)}`;
+  // Sort then slice
+  const _aoSorted=orders.slice().sort((a,b)=>{
+    let av,bv;
+    switch(adminOrdSortKey){
+      case'time':   av=a.createdAt;bv=b.createdAt;break;
+      case'val':    av=a.val;bv=b.val;break;
+      case'comm':   av=a.comm;bv=b.comm;break;
+      case'fee':    av=a.fee;bv=b.fee;break;
+      case'cost':   {const ta=a.tripId?trips.find(t=>t.id===a.tripId):null;const tb=b.tripId?trips.find(t=>t.id===b.tripId):null;av=a.status==='DELIVERED'?calcCourierShare(ta?ta.ordIds.length:1):0;bv=b.status==='DELIVERED'?calcCourierShare(tb?tb.ordIds.length:1):0;break;}
+      case'eta':    av=a.sla.promisedEta;bv=b.sla.promisedEta;break;
+      case'status': av=a.status;bv=b.status;break;
+      default:      av=a.createdAt;bv=b.createdAt;
+    }
+    return av===bv?0:(av<bv?-adminOrdSortDir:adminOrdSortDir);
+  });
+  const _aoSlice=_aoSorted.slice(0,30);
+  // Sortable thead
+  const _aosi=(k)=>adminOrdSortKey===k?`<span style="color:var(--green);margin-left:3px">${adminOrdSortDir===1?'↑':'↓'}</span>`:'';
+  const _aoth=(label,key,r)=>`<th style="cursor:pointer;user-select:none;${r?'text-align:right;':''}white-space:nowrap" onclick="_setAdminOrdSort('${key}')">${label}${_aosi(key)}</th>`;
+  const _aoHead=document.querySelector('#adminOrderHead tr');
+  if(_aoHead)_aoHead.innerHTML=`<th>Order ID</th>${_aoth('Time','time',false)}<th>Store</th><th>Group</th>${_aoth('Value','val',true)}${_aoth('Commission','comm',true)}${_aoth('Del.Fee','fee',true)}${_aoth('Del.Cost','cost',true)}${_aoth('ETA','eta',false)}${_aoth('Status','status',false)}<th>SLA</th>`;
+  document.getElementById('adminOrderTable').innerHTML=_aoSlice.map(o=>{
+    const trip=o.tripId?trips.find(t=>t.id===o.tripId):null;
+    const delCost=o.status==='DELIVERED'?`<td style="color:var(--red);text-align:right">€${calcCourierShare(trip?trip.ordIds.length:1).toFixed(2)}</td>`:`<td style="color:var(--muted2);text-align:right">—</td>`;
+    const canExpand=!!trip;
+    const isExp=expandedAdminOrderId===o.id;
+    const chevron=canExpand?(isExp?'▼ ':'▶ '):'';
+    const idStyle=canExpand?'font-weight:700;color:var(--green);cursor:pointer':'font-weight:700;color:var(--green)';
+    const idClick=canExpand?`onclick="toggleAdminOrder('${o.id}')" `:'';
+    let expandRow='';
+    if(isExp&&trip){
+      const _tiCourier=couriers.find(c=>c.id===trip.courierId);
+      const _tiOrders=trip.ordIds.map(oid=>orders.find(x=>x.id===oid)).filter(Boolean);
+      expandRow=_renderTripIntelRow(o,trip,_tiCourier,_tiOrders);
+    }
+    return`<tr>
+    <td ${idClick}style="${idStyle}">${chevron}${o.id}</td>
+    <td style="color:var(--muted)">${fmtTime(o.createdAt)}</td>
+    <td>${o.storeEmoji} ${o.storeName}</td>
+    <td><span class="mg mg-${o.storeGroup}">${o.storeGroup}</span></td>
+    <td style="font-weight:600;text-align:right">€${o.val.toFixed(2)}</td>
+    <td style="color:var(--green);text-align:right">€${o.comm.toFixed(2)}</td>
+    <td style="text-align:right">€${o.fee.toFixed(2)}</td>
+    ${delCost}
+    <td>${o.sla.promisedEta}min</td>
+    <td><span class="sbadge s-${o.status}">${fmtStatus(o.status)}</span></td>
+    <td><span class="utag utag-${o.urgency}">${urgLbl(o.urgency)}</span></td>
+  </tr>${expandRow}`;}).join('');
+  {const GL='background:var(--green-light)';const GB='border-left:3px solid var(--green)';const R='text-align:right';
+  const _aoVal=_aoSlice.reduce((a,o)=>a+o.val,0);
+  const _aoComm=_aoSlice.reduce((a,o)=>a+o.comm,0);
+  const _aoFee=_aoSlice.reduce((a,o)=>a+o.fee,0);
+  const _aoCost=_aoSlice.reduce((a,o)=>{if(o.status!=='DELIVERED')return a;const t=o.tripId?trips.find(x=>x.id===o.tripId):null;return a+calcCourierShare(t?t.ordIds.length:1);},0);
+  const _aoFoot=document.getElementById('adminOrderFoot');
+  if(_aoFoot)_aoFoot.innerHTML=`<tr><td style="${GB};${GL};font-weight:700;color:var(--dark)">TOTAL (${_aoSlice.length})</td><td style="${GL}"></td><td style="${GL}"></td><td style="${GL}"></td><td style="${GL};${R};font-weight:700">€${_aoVal.toFixed(2)}</td><td style="${GL};${R};color:var(--green);font-weight:700">€${_aoComm.toFixed(2)}</td><td style="${GL};${R};font-weight:700">€${_aoFee.toFixed(2)}</td><td style="${GL};${R};color:var(--red);font-weight:700">€${_aoCost.toFixed(2)}</td><td style="${GL}"></td><td style="${GL}"></td><td style="${GL}"></td></tr>`;}
+  const sOrd={},sRev={};
+  orders.forEach(o=>{sOrd[o.merchantId]=(sOrd[o.merchantId]||0)+1;sRev[o.merchantId]=(sRev[o.merchantId]||0)+o.val;});
+  document.getElementById('merchantTable').innerHTML=STORES.map(s=>`<tr>
+    <td><b>${s.emoji} ${s.name}</b></td>
+    <td><span class="mg mg-${s.group}">${s.group}</span></td>
+    <td style="font-weight:600">${(s.commission*100).toFixed(0)}%</td>
+    <td>€${s.minOrder}</td>
+    <td style="font-weight:600">${sOrd[s.id]||0}</td>
+    <td>€${(sRev[s.id]||0).toFixed(0)}</td>
+    <td><span class="sbadge s-DELIVERED">Online</span></td>
+  </tr>`).join('');
+}
+
+function saveMerchantSetting(storeId, field, rawValue){
+  const n=parseFloat(rawValue);
+  if(isNaN(n))return;
+  let v;
+  if(field==='commission')     v=Math.min(100,Math.max(0,n))/100;
+  else if(field==='minOrder')  v=Math.min(200,Math.max(0,Math.round(n*100)/100));
+  else if(field==='freeDeliveryThreshold') v=Math.min(500,Math.max(0,Math.round(n*100)/100));
+  else if(field==='feeUnder') v=Math.min(20,Math.max(0,Math.round(n*100)/100));
+  else if(field==='feeOver')  v=Math.min(20,Math.max(0,Math.round(n*100)/100));
+  else return;
+  if(!merchantSettings[storeId])merchantSettings[storeId]={};
+  merchantSettings[storeId][field]=v;
+  persistMerchantSettings();
+}
+function resetMerchantStore(storeId){
+  delete merchantSettings[storeId];
+  persistMerchantSettings();
+  renderMerchantSettings();
+}
+function renderMerchantSettings(){
+  const pane=document.getElementById('merchantSettingsPane');
+  if(!pane)return;
+  if(selectedMerchantId) _renderMerchantDetail(pane);
+  else _renderMerchantList(pane);
+}
+function _renderMerchantList(pane){
+  const inp=(sid,field,displayVal,min,max,step)=>
+    `<input type="number" value="${displayVal}" min="${min}" max="${max}" step="${step}"
+      style="width:72px;padding:3px 6px;border:1px solid var(--border);border-radius:5px;font-size:13px;text-align:right"
+      onchange="saveMerchantSetting('${sid}','${field}',this.value)">`;
+  const groups=[
+    {label:'🏪 Darkstore',key:'darkstore'},
+    {label:'🍔 QSR',key:'qsr'},
+    {label:'🍽️ Restaurant',key:'restaurant'},
+    {label:'🛒 Other',key:'other'},
+  ];
+  const rows=groups.map(g=>{
+    const stores=STORES.filter(s=>s.group===g.key);
+    const head=`<tr><td colspan="7" style="background:var(--green-light);color:var(--dark);font-weight:700;padding:7px 12px;font-size:12px;letter-spacing:.4px">${g.label}</td></tr>`;
+    const body=stores.map(s=>{
+      const comm=(getMerchantSetting(s.id,'commission')*100).toFixed(0);
+      const mo=getMerchantSetting(s.id,'minOrder');
+      const fdt=getMerchantSetting(s.id,'freeDeliveryThreshold');
+      const fu=getMerchantSetting(s.id,'feeUnder');
+      const fo=getMerchantSetting(s.id,'feeOver');
+      const hasOverride=!!merchantSettings[s.id];
+      const resetBtn=hasOverride
+        ?`<button onclick="resetMerchantStore('${s.id}')" style="font-size:11px;padding:2px 8px;border:1px solid var(--border);border-radius:4px;background:#fff;cursor:pointer;color:var(--muted)">Reset</button>`
+        :`<span style="font-size:11px;color:var(--muted2)">default</span>`;
+      return`<tr>
+        <td style="cursor:pointer" onclick="openMerchantDetail('${s.id}')"><b>${s.emoji} ${s.name}</b> <span style="font-size:10px;color:var(--green);font-weight:600">↗</span></td>
+        <td>${inp(s.id,'commission',comm,0,100,1)}</td>
+        <td>${inp(s.id,'minOrder',mo,0,200,1)}</td>
+        <td>${inp(s.id,'freeDeliveryThreshold',fdt,0,500,1)}</td>
+        <td>${inp(s.id,'feeUnder',fu,0,20,0.10)}</td>
+        <td>${inp(s.id,'feeOver',fo,0,20,0.10)}</td>
+        <td style="text-align:center">${resetBtn}</td>
+      </tr>`;
+    }).join('');
+    return head+body;
+  }).join('');
+  pane.innerHTML=`<div class="table-card">
+    <div class="table-card-head">⚙️ Manage Merchants <span style="font-size:12px;color:var(--muted);font-weight:400">Click a merchant name to view profile · Changes apply to future orders only</span></div>
+    <table class="tcard-table"><thead><tr><th>Store</th><th>Commission %</th><th>Min Order €</th><th>Free Delivery Above €</th><th>Fee Under €</th><th>Fee Over €</th><th></th></tr></thead>
+    <tbody>${rows}</tbody></table>
+  </div>`;
+}
+function _renderMerchantDetail(pane){
+  const s=STORES.find(x=>x.id===selectedMerchantId);
+  if(!s){closeMerchantDetail();return;}
+  const tabDefs=[{k:'profile',label:'👤 Profile'},{k:'products',label:'🛒 Products'},{k:'financials',label:'📊 Financials'}];
+  const tabHtml=tabDefs.map(t=>`<button class="mdetail-tab${merchantDetailTab===t.k?' active':''}" onclick="switchMerchantTab('${t.k}')">${t.label}</button>`).join('');
+  let content='';
+  if(merchantDetailTab==='profile') content=_renderMerchantProfile(s);
+  else if(merchantDetailTab==='products') content=_renderMerchantProducts(s);
+  else if(merchantDetailTab==='financials') content=_renderMerchantFinancials(s);
+  else content=`<div style="padding:40px;text-align:center;color:var(--muted2);font-size:13px">Coming soon</div>`;
+  pane.innerHTML=`
+    <div style="padding:12px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px;background:var(--card);flex-shrink:0">
+      <button onclick="closeMerchantDetail()" style="font-size:12px;padding:4px 12px;border:1px solid var(--border);border-radius:6px;background:var(--bg);cursor:pointer;color:var(--muted);flex-shrink:0">← Back</button>
+      <span style="font-size:15px;font-weight:700;flex:1">${s.emoji} ${s.name}</span>
+      <span style="font-size:11px;padding:2px 8px;border-radius:10px;background:var(--green-light);color:var(--dark);font-weight:600;flex-shrink:0">${s.type}</span>
+    </div>
+    <div style="display:flex;gap:0;padding:0 12px;border-bottom:1px solid var(--border);background:var(--card);flex-shrink:0">${tabHtml}</div>
+    <div style="padding:18px 20px;overflow-y:auto;flex:1">${content}</div>`;
+}
+function _renderMerchantProfile(s){
+  const row=(label,value)=>`
+    <div style="padding:9px 0;border-bottom:1px solid var(--border);display:grid;grid-template-columns:200px 1fr;gap:8px;align-items:baseline">
+      <span style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px">${label}</span>
+      <span style="font-size:13px">${value}</span>
+    </div>`;
+  const comm=(getMerchantSetting(s.id,'commission')*100).toFixed(0);
+  const mo=getMerchantSetting(s.id,'minOrder');
+  const fdt=getMerchantSetting(s.id,'freeDeliveryThreshold');
+  const fu=getMerchantSetting(s.id,'feeUnder');
+  const fo=getMerchantSetting(s.id,'feeOver');
+  const sec=(title)=>`<div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin:16px 0 4px;padding-bottom:5px;border-bottom:2px solid var(--green)">${title}</div>`;
+  return`<div style="max-width:700px">
+    ${sec('Identity')}
+    ${row('Display Name',`<b>${s.emoji} ${s.name}</b>`)}
+    ${row('Legal Name',s.legalName||'—')}
+    ${row('Contact Person',s.contactPerson||'—')}
+    ${row('Email',s.email?`<a href="mailto:${s.email}" style="color:var(--green)">${s.email}</a>`:'—')}
+    ${row('IBAN',s.iban?`<span style="font-family:monospace;letter-spacing:.5px">${s.iban}</span>`:'—')}
+    ${row('Type',s.type)}
+    ${row('Address',s.address||'—')}
+    ${row('Rating',`⭐ ${s.rating}`)}
+    ${sec('Commercial Terms')}
+    ${row('Commission',`${comm}%`)}
+    ${row('Minimum Order',`€${mo}`)}
+    ${row('Free Delivery Above',`€${fdt}`)}
+    ${row('Delivery Fee (under threshold)',`€${fu.toFixed(2)}`)}
+    ${row('Delivery Fee (over threshold)',`€${fo.toFixed(2)}`)}
+  </div>`;
+}
+function openMerchantDetail(id){
+  selectedMerchantId=id;
+  merchantDetailTab='profile';
+  renderMerchantSettings();
+}
+function closeMerchantDetail(){
+  selectedMerchantId=null;
+  renderMerchantSettings();
+}
+function switchMerchantTab(tab){
+  merchantDetailTab=tab;
+  renderMerchantSettings();
+}
+
+// ── SHARED PERIOD RANGE HELPER ─────────────
+// opts: {hasAll, defaultWeek, fromFallback, toFallback}
+function _getPeriodRange(period,fromInputId,toInputId,opts){
+  const now=new Date();now.setHours(23,59,59,999);
+  const today=new Date();today.setHours(0,0,0,0);
+  if(period==='today')return{from:today,to:now};
+  if(period==='week'){const f=new Date(today);f.setDate(f.getDate()-6);return{from:f,to:now};}
+  if(period==='month'){const f=new Date(today.getFullYear(),today.getMonth(),1);return{from:f,to:now};}
+  if(period==='all'&&opts&&opts.hasAll){const f=new Date('2026-03-01');f.setHours(0,0,0,0);return{from:f,to:now};}
+  if(period==='custom'){
+    const fv=document.getElementById(fromInputId).value||(opts&&opts.fromFallback||'');
+    const tv=document.getElementById(toInputId).value||(opts&&opts.toFallback||'');
+    const f=new Date(fv);f.setHours(0,0,0,0);
+    const t=new Date(tv);t.setHours(23,59,59,999);
+    return{from:f,to:t};
+  }
+  if(opts&&opts.defaultWeek){const f=new Date(today);f.setDate(f.getDate()-6);return{from:f,to:now};}
+  return{from:today,to:now};
+}
+
+// ── MERCHANT FINANCIALS ────────────────────
+function getMerchantFinPeriodRange(){
+  return _getPeriodRange(merchantFinPeriod,'mfDateFrom','mfDateTo',{hasAll:true,fromFallback:'2026-03-01',toFallback:new Date().toISOString().slice(0,10)});
+}
+function setMerchantFinPeriod(p,btn){
+  merchantFinPeriod=p;
+  document.querySelectorAll('.mf-period-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  const cr=document.getElementById('mfCustomRange');
+  if(cr)cr.style.display=p==='custom'?'flex':'none';
+  renderMerchantSettings();
+}
+function applyMerchantFinPeriod(){
+  merchantFinPeriod='custom';
+  renderMerchantSettings();
+}
+function _renderMerchantFinancials(s){
+  const {from,to}=getMerchantFinPeriodRange();
+  const {mAgg}=getRange(from,to);
+  const d=mAgg[s.id]||{orders:0,sales:0,commission:0,fees:0,couriers:0};
+  const gp=Math.round((d.commission+d.fees-d.couriers)*100)/100;
+  const avgBasket=d.orders>0?Math.round(d.sales/d.orders*100)/100:0;
+  // Seeded stable stats per merchant
+  const idx=STORES.findIndex(x=>x.id===s.id);
+  const srng=mulberry32(7500+idx);srng();srng();
+  const refundPct=Math.round(srng()*80)/10; // 0.0–8.0%
+  const opm=d.orders>0?d.orders:Math.round(20+srng()*80); // orders per month from data or seeded
+  const periods=[
+    {k:'today',label:'Today'},{k:'week',label:'Last 7 Days'},{k:'month',label:'This Month'},
+    {k:'all',label:'All Time'},{k:'custom',label:'Custom'},
+  ];
+  const periodBtns=periods.map(p=>`<button class="mf-period-btn${merchantFinPeriod===p.k?' active':''}" onclick="setMerchantFinPeriod('${p.k}',this)">${p.label}</button>`).join('');
+  const kpi=(label,value,color='')=>`<div style="background:var(--card);border:1px solid var(--border);border-radius:10px;padding:14px 16px;min-width:120px;flex:1">
+    <div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px">${label}</div>
+    <div style="font-size:20px;font-weight:700;${color?'color:'+color:''}">${value}</div>
+  </div>`;
+  const periodLabel={today:'Today',week:'Last 7 Days',month:'This Month',all:'All Time',custom:'Custom'}[merchantFinPeriod]||'';
+  return`<div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:14px">
+      ${periodBtns}
+      <div id="mfCustomRange" style="display:${merchantFinPeriod==='custom'?'flex':'none'};gap:6px;align-items:center">
+        <input type="date" id="mfDateFrom" value="2026-03-01" style="font-size:12px;padding:3px 7px;border:1px solid var(--border);border-radius:5px">
+        <span style="color:var(--muted)">→</span>
+        <input type="date" id="mfDateTo" value="${new Date().toISOString().slice(0,10)}" style="font-size:12px;padding:3px 7px;border:1px solid var(--border);border-radius:5px">
+        <button onclick="applyMerchantFinPeriod()" style="font-size:12px;padding:3px 10px;border:1px solid var(--green);border-radius:5px;background:var(--green);color:#fff;cursor:pointer">Apply</button>
+      </div>
+    </div>
+    <div style="font-size:11px;color:var(--muted);margin-bottom:12px">Period: <b>${periodLabel}</b> · ${s.emoji} ${s.name}</div>
+    <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:18px">
+      ${kpi('Orders',d.orders)}
+      ${kpi('Gross Sales','€'+fmt2(d.sales))}
+      ${kpi('Avg Basket',d.orders>0?'€'+fmt2(avgBasket):'—')}
+      ${kpi('Commission','€'+fmt2(d.commission),'var(--green)')}
+      ${kpi('Del. Fee Rev.','€'+fmt2(d.fees),'var(--green)')}
+      ${kpi('Courier Cost','€'+fmt2(d.couriers),'var(--red)')}
+      ${kpi('Gross Profit','€'+fmt2(gp),gp>=0?'var(--green)':'var(--red)')}
+      ${kpi('Refund / Cancel',refundPct.toFixed(1)+'%',refundPct>5?'var(--red)':'')}
+      ${kpi('Orders / Month',opm)}
+    </div>
+    ${_renderMerchantOrderTable(s,from,to)}
+  </div>`;
+}
+
+function _sortMerchantOrders(list){
+  return list.slice().sort((a,b)=>{
+    let av,bv;
+    switch(merchantSortKey){
+      case'date':   av=a.date.getTime();bv=b.date.getTime();break;
+      case'val':    av=a.val;bv=b.val;break;
+      case'comm':   av=a.comm;bv=b.comm;break;
+      case'fee':    av=a.fee;bv=b.fee;break;
+      case'cour':   av=calcCourierShare(a.tripSize);bv=calcCourierShare(b.tripSize);break;
+      case'gp':     av=a.comm+a.fee-calcCourierShare(a.tripSize);bv=b.comm+b.fee-calcCourierShare(b.tripSize);break;
+      default:      av=a.date.getTime();bv=b.date.getTime();
+    }
+    return av===bv?0:(av<bv?-merchantSortDir:merchantSortDir);
+  });
+}
+function _sortMerchantCol(key){
+  if(merchantSortKey===key){merchantSortDir*=-1;}else{merchantSortKey=key;merchantSortDir=1;}
+  renderMerchantSettings();
+}
+function _applyMerchantFilter(list){
+  return list.filter(o=>{
+    const gp=o.comm+o.fee-calcCourierShare(o.tripSize);
+    switch(merchantFinFilter){
+      case'delivered':  return(o.status||'DELIVERED')==='DELIVERED';
+      case'cancelled':  return(o.status||'DELIVERED')==='CANCELLED';
+      case'profitable': return gp>0;
+      case'loss':       return gp<0;
+      default:          return true; // 'all'
+    }
+  });
+}
+function _setMerchantFilter(f){
+  merchantFinFilter=f;
+  renderMerchantSettings();
+}
+function _renderMerchantOrderTable(s,from,to){
+  if(merchantFinPeriod==='today')return`<div style="font-size:12px;color:var(--muted2);margin-top:8px;padding:10px 0;border-top:1px solid var(--border)">📋 Order-level history is not available for Today — switch to Last 7 Days or wider to see individual orders.</div>`;
+  const all=getMerchantOrderHistory(s.id,from,to);
+  if(!all.length)return`<div style="font-size:12px;color:var(--muted2);margin-top:8px">No historical orders found for this period.</div>`;
+  const CAP=150;
+  const pool=getCustomerPool(80);
+  // 1. Filter full period dataset
+  const filtered=_applyMerchantFilter(all);
+  // 2. TOTAL row — based on filtered full dataset (before sort/cap)
+  let tVal=0,tComm=0,tFee=0,tCour=0,tGP=0;
+  filtered.forEach(o=>{
+    const cour=calcCourierShare(o.tripSize);
+    tVal+=o.val;tComm+=o.comm;tFee+=o.fee;tCour+=cour;
+    tGP+=Math.round((o.comm+o.fee-cour)*100)/100;
+  });
+  tVal=Math.round(tVal*100)/100;tComm=Math.round(tComm*100)/100;
+  tFee=Math.round(tFee*100)/100;tCour=Math.round(tCour*100)/100;tGP=Math.round(tGP*100)/100;
+  // 3. Sort filtered dataset
+  const sorted=_sortMerchantOrders(filtered);
+  // 4. Cap for display
+  const rows=sorted.slice(0,CAP);
+  // Helpers
+  const R='text-align:right';
+  const si=(k)=>merchantSortKey===k?`<span style="color:var(--green);margin-left:3px">${merchantSortDir===1?'↑':'↓'}</span>`:'';
+  const th=(label,key)=>`<th style="cursor:pointer;user-select:none;white-space:nowrap;text-align:right" onclick="_sortMerchantCol('${key}')">${label}${si(key)}</th>`;
+  const thL=(label,key)=>`<th style="cursor:pointer;user-select:none;white-space:nowrap" onclick="_sortMerchantCol('${key}')">${label}${si(key)}</th>`;
+  const thPlain=(label)=>`<th>${label}</th>`;
+  const statusBadge=(o)=>{const st=o.status||'DELIVERED';return`<span class="sbadge s-${st}">${st==='DELIVERED'?'Delivered':st==='CANCELLED'?'Cancelled':'Refunded'}</span>`;};
+  const FILTERS=[{k:'all',l:'All'},{k:'delivered',l:'Delivered'},{k:'cancelled',l:'Cancelled'},{k:'profitable',l:'Profitable'},{k:'loss',l:'Loss-making'}];
+  const filterBar=FILTERS.map(f=>`<button onclick="_setMerchantFilter('${f.k}')" style="font-size:11px;padding:3px 10px;border-radius:12px;border:1px solid ${merchantFinFilter===f.k?'var(--green)':'var(--border)'};background:${merchantFinFilter===f.k?'var(--green)':'transparent'};color:${merchantFinFilter===f.k?'#fff':'var(--muted)'};cursor:pointer;font-weight:${merchantFinFilter===f.k?'700':'400'}">${f.l}</button>`).join('');
+  // 5. Render display rows
+  const tbody=rows.length?rows.map(o=>{
+    const cour=calcCourierShare(o.tripSize);
+    const opgp=Math.round((o.comm+o.fee-cour)*100)/100;
+    const d=o.date;
+    const ds=`${String(d.getDate()).padStart(2,'0')}.${String(d.getMonth()+1).padStart(2,'0')}.${d.getFullYear()}`;
+    const cust=pool[o.custIdx]||pool[0];
+    return`<tr>
+      <td style="color:var(--muted);font-size:11px;white-space:nowrap">${ds}</td>
+      <td style="font-family:monospace;font-size:11px;color:var(--muted)">${o.orderId}</td>
+      <td style="font-size:12px">${cust.name}</td>
+      <td style="font-weight:600;${R}">€${fmt2(o.val)}</td>
+      <td style="color:var(--green);${R}">€${fmt2(o.comm)}</td>
+      <td style="color:var(--green);${R}">€${fmt2(o.fee)}</td>
+      <td style="color:var(--red);${R}">€${fmt2(cour)}</td>
+      <td class="${opgp>=0?'profit-pos':'profit-neg'}" style="${R}">€${fmt2(opgp)}</td>
+      <td style="text-align:center">${statusBadge(o)}</td>
+    </tr>`;
+  }).join(''):`<tr><td colspan="9" style="text-align:center;color:var(--muted2);padding:16px">No orders match this filter.</td></tr>`;
+  const capNote=filtered.length>CAP?`<div style="font-size:11px;color:var(--muted2);margin-bottom:6px">Showing first ${CAP} of ${filtered.length} orders — totals reflect full filtered set</div>`:'';
+  return`<div style="margin-top:4px">
+    <div style="display:flex;align-items:center;justify-content:space-between;padding-bottom:7px;border-bottom:2px solid var(--green);margin-bottom:10px">
+      <span style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px">Order History</span>
+      <div style="display:flex;gap:5px;flex-wrap:wrap">${filterBar}</div>
+    </div>
+    ${capNote}
+    <table class="tcard-table">
+      <thead><tr>
+        ${thL('Date','date')}${thPlain('Order ID')}${thPlain('Customer')}
+        ${th('Value','val')}${th('Commission','comm')}${th('Del. Fee','fee')}${th('Courier Cost','cour')}${th('Gross Profit','gp')}${thPlain('Status')}
+      </tr></thead>
+      <tbody>${tbody}</tbody>
+      <tfoot><tr>
+        <td colspan="3" style="font-weight:700;color:var(--dark);background:var(--green-light);border-left:3px solid var(--green)">TOTAL — ${filtered.length} orders</td>
+        <td style="font-weight:700;${R};background:var(--green-light)">€${fmt2(tVal)}</td>
+        <td style="color:var(--green);font-weight:700;${R};background:var(--green-light)">€${fmt2(tComm)}</td>
+        <td style="color:var(--green);font-weight:700;${R};background:var(--green-light)">€${fmt2(tFee)}</td>
+        <td style="color:var(--red);font-weight:700;${R};background:var(--green-light)">€${fmt2(tCour)}</td>
+        <td class="${tGP>=0?'profit-pos':'profit-neg'}" style="font-weight:700;${R};background:var(--green-light)">€${fmt2(tGP)}</td>
+        <td style="background:var(--green-light)"></td>
+      </tr></tfoot>
+    </table>
+  </div>`;
+}
+function getMerchantOrderHistory(storeId,from,to){
+  const POOL_SIZE=80;
+  const days=getHistoricalDays().filter(d=>{const ds=new Date(d);ds.setHours(0,0,0,0);return ds>=from&&ds<=to;});
+  const storesByGroup={};
+  STORES.forEach(s=>{if(!storesByGroup[s.group])storesByGroup[s.group]=[];storesByGroup[s.group].push(s);});
+  const storeById={};STORES.forEach(s=>{storeById[s.id]=s;});
+  const results=[];
+  days.forEach(date=>{
+    const key=Math.floor(date.getTime()/86400000);
+    const rng=mulberry32(key);
+    const nOrders=Math.floor(40+rng()*22);
+    const orderList=[];
+    for(let i=0;i<nOrders;i++){
+      const r=rng();let group,val,comm;
+      if(r<0.20){group='darkstore';val=15+rng()*65;comm=0.30;}
+      else if(r<0.50){group='qsr';val=15+rng()*38;comm=0.10;}
+      else if(r<0.88){group='restaurant';val=30+rng()*40;comm=0.15+rng()*0.08;}
+      else{group='other';val=20+rng()*60;comm=0.08+rng()*0.07;}
+      val=Math.round(val*100)/100;
+      const orderComm=Math.round(val*comm*100)/100;
+      const fee=calcFee(group,val);
+      const sArr=storesByGroup[group]||[];
+      const sObj=sArr.length?sArr[Math.floor(rng()*sArr.length)]:null;
+      const sid=sObj?sObj.id:null;
+      // Consume item + custIdx rng calls — mirrors getCustomerHistory pass 1 exactly
+      const iArr=MENUS[sObj?sObj.type:'restaurant']||MENUS.restaurant;
+      const item=iArr[Math.floor(rng()*iArr.length)];
+      const custIdx=Math.floor(rng()*POOL_SIZE);
+      orderList.push({group,val,orderComm,fee,sid,seq:i+1,item,custIdx});
+    }
+    // Replay batching to assign tripSize (mirrors getDayData exactly)
+    let bi=0;
+    while(bi<orderList.length){
+      const r2=rng();
+      const size=r2<0.20?1:r2<0.50?2:r2<0.75?3:4;
+      const end=Math.min(bi+size,orderList.length);
+      const actual=end-bi;
+      for(let j=bi;j<end;j++)orderList[j].tripSize=actual;
+      bi+=actual;
+    }
+    orderList.forEach(o=>{
+      if(o.sid===storeId){
+        results.push({
+          date:new Date(date),
+          orderId:`EB-H${key}-${String(o.seq).padStart(3,'0')}`,
+          val:o.val,comm:o.orderComm,fee:o.fee,
+          tripSize:o.tripSize||1,
+          item:o.item,custIdx:o.custIdx,
+        });
+      }
+    });
+  });
+  return results;
+}
+
+// ── MERCHANT PRODUCTS ──────────────────────
+const _PROD_POOL={
+  qsr:{
+    Burgers:[{n:"Big Mac",u:"portion",k:550},{n:"Quarter Pounder",u:"portion",k:520},{n:"Whopper",u:"portion",k:660},{n:"Double Cheeseburger",u:"portion",k:480},{n:"Crispy Chicken Burger",u:"portion",k:490},{n:"Veggie Burger",u:"portion",k:380},{n:"Bacon Double",u:"portion",k:580}],
+    Sides:[{n:"French Fries (L)",u:"portion",k:490},{n:"Onion Rings",u:"portion",k:320},{n:"Chicken Nuggets 9pc",u:"portion",k:430},{n:"Mozzarella Sticks",u:"portion",k:360},{n:"Side Salad",u:"portion",k:85}],
+    Drinks:[{n:"Coca-Cola (L)",u:"cup",k:210},{n:"Orange Juice",u:"cup",k:140},{n:"Vanilla Milkshake",u:"cup",k:540},{n:"Iced Coffee",u:"cup",k:180},{n:"Mineral Water",u:"bottle",k:0}],
+    Desserts:[{n:"McFlurry",u:"portion",k:350},{n:"Apple Pie",u:"portion",k:250},{n:"Soft Serve",u:"portion",k:200}],
+  },
+  restaurant:{
+    Starters:[{n:"Salmon Tartare",u:"portion",k:220},{n:"Mushroom Soup",u:"bowl",k:180},{n:"Beef Carpaccio",u:"portion",k:240},{n:"Burrata & Tomato",u:"portion",k:290},{n:"Shrimp Cocktail",u:"portion",k:160}],
+    Mains:[{n:"Grilled Salmon",u:"portion",k:480},{n:"Reindeer Steak",u:"portion",k:560},{n:"Pasta Carbonara",u:"portion",k:620},{n:"Beef Tenderloin",u:"portion",k:540},{n:"Mushroom Risotto",u:"portion",k:510},{n:"Duck Breast",u:"portion",k:490},{n:"Sea Bass Fillet",u:"portion",k:420},{n:"Vegan Bowl",u:"portion",k:340}],
+    Desserts:[{n:"Chocolate Lava Cake",u:"portion",k:420},{n:"Crème Brûlée",u:"portion",k:310},{n:"Pannacotta",u:"portion",k:280},{n:"Berry Sorbet",u:"portion",k:150}],
+    Drinks:[{n:"House Wine",u:"glass",k:120},{n:"Craft Beer",u:"bottle",k:190},{n:"Sparkling Water",u:"bottle",k:0},{n:"Espresso",u:"cup",k:10},{n:"Cocktail of the Day",u:"glass",k:220}],
+  },
+  cafe:{
+    Hot:[{n:"Flat White",u:"cup",k:120},{n:"Cappuccino",u:"cup",k:110},{n:"Latte",u:"cup",k:140},{n:"Espresso",u:"cup",k:10},{n:"Chai Latte",u:"cup",k:180}],
+    Cold:[{n:"Iced Latte",u:"cup",k:140},{n:"Cold Brew",u:"cup",k:20},{n:"Fruit Smoothie",u:"cup",k:180}],
+    Food:[{n:"Croissant",u:"piece",k:280},{n:"Avocado Toast",u:"portion",k:320},{n:"Granola Bowl",u:"portion",k:380},{n:"Cinnamon Bun",u:"piece",k:340},{n:"Sandwich of the Day",u:"portion",k:420}],
+  },
+  darkstore:{
+    Fruits:[{n:"Organic Apples",u:"kg",k:52,p:[1.9,3.5]},{n:"Bananas",u:"kg",k:89,p:[0.9,1.8]},{n:"Strawberries 500g",u:"pack",k:32,p:[3.5,5.5]},{n:"Blueberries 300g",u:"pack",k:57,p:[3.9,6.5]},{n:"Oranges",u:"kg",k:47,p:[1.5,2.9]},{n:"Grapes 500g",u:"pack",k:67,p:[2.9,4.9]},{n:"Mango",u:"piece",k:60,p:[1.5,2.5]},{n:"Watermelon",u:"piece",k:30,p:[4.5,7.9]},{n:"Avocado",u:"piece",k:160,p:[0.9,1.9]},{n:"Raspberries 250g",u:"pack",k:52,p:[3.5,5.9]},{n:"Kiwi 4pk",u:"pack",k:61,p:[1.9,3.2]},{n:"Pear",u:"kg",k:57,p:[1.5,2.9]},{n:"Pineapple",u:"piece",k:50,p:[2.9,4.5]},{n:"Lemon 3pk",u:"pack",k:29,p:[0.9,1.9]},{n:"Peach",u:"kg",k:39,p:[2.5,4.5]},{n:"Clementines 1kg",u:"bag",k:47,p:[2.5,3.9]},{n:"Plums",u:"kg",k:46,p:[2.5,4.5]}],
+    Vegetables:[{n:"Tomatoes",u:"kg",k:18,p:[1.9,3.5]},{n:"Carrots 1kg",u:"bag",k:41,p:[0.9,1.9]},{n:"Cucumber",u:"piece",k:16,p:[0.5,1.5]},{n:"Bell Peppers 3pk",u:"pack",k:31,p:[1.9,3.5]},{n:"Broccoli",u:"piece",k:34,p:[1.2,2.5]},{n:"Spinach 200g",u:"bag",k:23,p:[1.9,3.2]},{n:"Iceberg Lettuce",u:"piece",k:14,p:[0.9,1.9]},{n:"Zucchini",u:"piece",k:17,p:[0.7,1.5]},{n:"Cauliflower",u:"piece",k:25,p:[1.5,2.9]},{n:"Onions 1kg",u:"bag",k:40,p:[0.9,1.9]},{n:"Garlic",u:"piece",k:149,p:[0.5,1.2]},{n:"Potatoes 2kg",u:"bag",k:77,p:[1.9,3.5]},{n:"Sweet Potato",u:"kg",k:86,p:[1.5,2.9]},{n:"Cherry Tomatoes 250g",u:"pack",k:18,p:[1.9,3.5]},{n:"Leek",u:"piece",k:61,p:[0.9,1.9]},{n:"Celery",u:"piece",k:16,p:[0.9,1.9]},{n:"Asparagus 250g",u:"bunch",k:20,p:[2.9,5.5]}],
+    Meat:[{n:"Chicken Breast 500g",u:"pack",k:165,p:[4.9,8.9]},{n:"Ground Beef 400g",u:"pack",k:254,p:[4.9,7.9]},{n:"Pork Chops 500g",u:"pack",k:242,p:[4.5,7.9]},{n:"Salmon Fillet 300g",u:"pack",k:208,p:[6.9,10.9]},{n:"Turkey Breast 400g",u:"pack",k:135,p:[4.9,8.9]},{n:"Beef Steak 300g",u:"pack",k:271,p:[8.9,14.9]},{n:"Lamb Chops 400g",u:"pack",k:294,p:[9.9,15.9]},{n:"Chicken Thighs 600g",u:"pack",k:177,p:[4.5,7.9]},{n:"Minced Pork 400g",u:"pack",k:263,p:[3.9,6.9]},{n:"Cod Fillet 300g",u:"pack",k:82,p:[5.9,9.9]},{n:"Smoked Salmon 200g",u:"pack",k:142,p:[6.9,11.9]},{n:"Duck Legs 2pk",u:"pack",k:337,p:[8.9,13.9]},{n:"Reindeer Sausage 300g",u:"pack",k:290,p:[5.9,9.9]},{n:"Bacon 200g",u:"pack",k:541,p:[2.9,5.9]},{n:"Sausages 6pk",u:"pack",k:301,p:[3.5,6.9]}],
+    Cheese:[{n:"Edam Sliced 200g",u:"pack",k:357,p:[2.9,4.9]},{n:"Brie 200g",u:"piece",k:334,p:[3.9,6.5]},{n:"Cheddar Block 300g",u:"pack",k:403,p:[3.9,6.5]},{n:"Mozzarella 125g",u:"ball",k:280,p:[1.9,3.5]},{n:"Gouda Sliced 200g",u:"pack",k:356,p:[2.9,5.5]},{n:"Feta 200g",u:"pack",k:264,p:[2.5,4.5]},{n:"Parmesan 100g",u:"wedge",k:431,p:[3.5,6.9]},{n:"Cream Cheese 200g",u:"tub",k:342,p:[1.9,3.5]},{n:"Halloumi 200g",u:"pack",k:321,p:[3.9,6.9]},{n:"Blue Cheese 100g",u:"wedge",k:353,p:[2.9,5.5]},{n:"Camembert",u:"piece",k:300,p:[2.9,5.5]},{n:"Cottage Cheese 250g",u:"tub",k:98,p:[1.5,2.9]}],
+    Dairy:[{n:"Whole Milk 1L",u:"bottle",k:61,p:[0.9,1.9]},{n:"Semi-Skimmed Milk 1L",u:"bottle",k:46,p:[0.9,1.9]},{n:"Oat Milk 1L",u:"carton",k:47,p:[1.5,2.9]},{n:"Natural Yoghurt 1kg",u:"tub",k:59,p:[1.9,3.5]},{n:"Greek Yoghurt 500g",u:"tub",k:97,p:[2.5,4.5]},{n:"Butter 200g",u:"pack",k:717,p:[2.5,4.5]},{n:"Heavy Cream 200ml",u:"carton",k:345,p:[1.5,2.9]},{n:"Sour Cream 200g",u:"tub",k:193,p:[1.2,2.5]},{n:"Eggs 12pk",u:"pack",k:143,p:[2.9,4.9]},{n:"Kefir 1L",u:"bottle",k:52,p:[1.5,2.9]},{n:"Quark 500g",u:"tub",k:72,p:[1.9,3.5]},{n:"Lactose-Free Milk 1L",u:"bottle",k:61,p:[1.5,2.9]},{n:"Almond Milk 1L",u:"carton",k:24,p:[1.9,3.5]}],
+    Bread:[{n:"Sourdough Loaf",u:"loaf",k:274,p:[2.9,5.5]},{n:"Rye Bread",u:"loaf",k:259,p:[2.5,4.9]},{n:"Whole Wheat Loaf",u:"loaf",k:247,p:[2.5,4.5]},{n:"Baguette",u:"piece",k:270,p:[1.2,2.5]},{n:"Croissants 4pk",u:"pack",k:406,p:[2.9,4.9]},{n:"Bagels 4pk",u:"pack",k:250,p:[2.9,4.9]},{n:"Pita Bread 4pk",u:"pack",k:275,p:[1.5,2.9]},{n:"Crispbread",u:"pack",k:384,p:[1.9,3.5]},{n:"English Muffins 4pk",u:"pack",k:228,p:[1.9,3.5]},{n:"Flatbread 3pk",u:"pack",k:297,p:[1.5,2.9]},{n:"Cinnamon Buns 4pk",u:"pack",k:362,p:[3.5,5.9]},{n:"Blueberry Muffins 4pk",u:"pack",k:430,p:[3.5,5.9]}],
+    Drinks:[{n:"Coca-Cola 1.5L",u:"bottle",k:210,p:[1.5,2.9]},{n:"Sparkling Water 1.5L",u:"bottle",k:0,p:[0.9,1.9]},{n:"Orange Juice 1L",u:"carton",k:45,p:[1.9,3.5]},{n:"Apple Juice 1L",u:"carton",k:47,p:[1.5,2.9]},{n:"Oat Coffee Drink",u:"bottle",k:58,p:[1.9,3.5]},{n:"Energy Drink",u:"can",k:45,p:[1.5,2.5]},{n:"Kombucha 400ml",u:"bottle",k:20,p:[2.5,4.5]},{n:"Cold Brew Coffee 350ml",u:"bottle",k:10,p:[2.9,4.9]},{n:"Green Tea 500ml",u:"bottle",k:4,p:[1.9,3.5]},{n:"Iced Tea 500ml",u:"bottle",k:22,p:[1.5,2.9]},{n:"Lemonade 1L",u:"bottle",k:38,p:[1.9,3.5]},{n:"Tonic Water 4pk",u:"pack",k:30,p:[2.5,4.5]},{n:"Coconut Water 330ml",u:"can",k:19,p:[1.9,3.5]}],
+    Frozen:[{n:"Frozen Pizza Margherita",u:"piece",k:242,p:[3.5,6.9]},{n:"Frozen Fish Fingers 400g",u:"pack",k:220,p:[3.9,6.5]},{n:"Frozen Peas 750g",u:"bag",k:77,p:[1.9,3.9]},{n:"Frozen Berries 1kg",u:"bag",k:49,p:[3.9,6.9]},{n:"Ice Cream 1L",u:"tub",k:207,p:[3.5,6.5]},{n:"Frozen Fries 750g",u:"bag",k:152,p:[2.5,4.5]},{n:"Frozen Stir Fry Mix 500g",u:"bag",k:42,p:[2.5,4.5]},{n:"Frozen Edamame 400g",u:"bag",k:121,p:[2.9,4.9]},{n:"Frozen Dim Sum 300g",u:"pack",k:198,p:[4.5,7.9]},{n:"Sorbet Mango 500ml",u:"tub",k:97,p:[3.5,5.9]},{n:"Frozen Spinach 400g",u:"bag",k:25,p:[1.5,3.5]}],
+    Snacks:[{n:"Potato Chips 150g",u:"bag",k:536,p:[1.9,3.5]},{n:"Salted Pretzels 200g",u:"bag",k:381,p:[1.9,3.9]},{n:"Mixed Nuts 200g",u:"bag",k:607,p:[3.5,6.9]},{n:"Dark Chocolate 100g",u:"bar",k:546,p:[1.9,4.5]},{n:"Milk Chocolate 100g",u:"bar",k:535,p:[1.5,3.5]},{n:"Granola Bar 4pk",u:"pack",k:380,p:[2.9,5.5]},{n:"Rice Cakes 130g",u:"pack",k:392,p:[1.9,3.5]},{n:"Popcorn 90g",u:"bag",k:480,p:[1.5,3.5]},{n:"Dried Mango 100g",u:"bag",k:319,p:[2.5,4.9]},{n:"Trail Mix 200g",u:"bag",k:489,p:[3.5,6.5]},{n:"Hummus 200g",u:"tub",k:166,p:[1.9,3.9]},{n:"Peanut Butter 350g",u:"jar",k:588,p:[2.9,5.5]},{n:"Crackers 200g",u:"pack",k:430,p:[1.9,3.9]}],
+    Household:[{n:"Dish Soap 500ml",u:"bottle",k:0,p:[1.9,4.5]},{n:"All-Purpose Cleaner",u:"bottle",k:0,p:[2.5,5.5]},{n:"Laundry Detergent 1.5L",u:"bottle",k:0,p:[5.9,11.9]},{n:"Dishwasher Tablets 30pk",u:"pack",k:0,p:[4.9,9.9]},{n:"Toilet Paper 8pk",u:"pack",k:0,p:[3.9,7.9]},{n:"Kitchen Roll 4pk",u:"pack",k:0,p:[2.9,5.9]},{n:"Hand Soap 250ml",u:"bottle",k:0,p:[1.9,4.5]},{n:"Bin Bags 50L 20pk",u:"pack",k:0,p:[2.9,5.9]},{n:"Sponges 5pk",u:"pack",k:0,p:[1.9,3.9]},{n:"Aluminium Foil",u:"roll",k:0,p:[1.5,3.5]},{n:"Cling Wrap",u:"roll",k:0,p:[1.5,3.5]},{n:"Candles 4pk",u:"pack",k:0,p:[2.9,5.9]}],
+    Pantry:[{n:"Spaghetti 500g",u:"pack",k:352,p:[1.2,2.9]},{n:"Basmati Rice 1kg",u:"bag",k:349,p:[1.9,4.5]},{n:"Olive Oil 500ml",u:"bottle",k:884,p:[4.9,9.9]},{n:"Canned Tomatoes 400g",u:"can",k:24,p:[0.9,2.5]},{n:"Chickpeas 400g",u:"can",k:164,p:[0.9,2.5]},{n:"Red Lentils 500g",u:"bag",k:353,p:[1.9,4.5]},{n:"Coconut Milk 400ml",u:"can",k:197,p:[1.5,3.5]},{n:"Soy Sauce 200ml",u:"bottle",k:60,p:[1.9,4.5]},{n:"Honey 250g",u:"jar",k:304,p:[2.9,6.5]},{n:"Tomato Paste 150g",u:"tube",k:78,p:[0.9,2.5]},{n:"Rolled Oats 500g",u:"bag",k:368,p:[1.9,4.5]},{n:"Plain Flour 1kg",u:"bag",k:364,p:[0.9,2.5]},{n:"Sugar 1kg",u:"bag",k:400,p:[0.9,2.5]},{n:"Balsamic Vinegar",u:"bottle",k:88,p:[2.5,5.9]},{n:"Dijon Mustard",u:"jar",k:66,p:[1.5,3.9]}],
+    Baby:[{n:"Baby Formula Stage 1",u:"can",k:500,p:[12.9,22.9]},{n:"Baby Wipes 72pk",u:"pack",k:0,p:[2.9,5.9]},{n:"Nappies Size 3 48pk",u:"pack",k:0,p:[11.9,19.9]},{n:"Baby Porridge 200g",u:"pack",k:369,p:[2.5,4.9]},{n:"Organic Baby Food 4pk",u:"pack",k:60,p:[3.9,6.9]},{n:"Baby Shampoo 300ml",u:"bottle",k:0,p:[3.9,6.9]},{n:"Baby Lotion 250ml",u:"bottle",k:0,p:[3.9,6.9]}],
+    Cleaning:[{n:"Bleach 1L",u:"bottle",k:0,p:[1.5,3.5]},{n:"Glass Cleaner 500ml",u:"bottle",k:0,p:[2.5,4.9]},{n:"Toilet Cleaner 750ml",u:"bottle",k:0,p:[2.5,4.9]},{n:"Fabric Conditioner 1L",u:"bottle",k:0,p:[3.9,7.9]},{n:"Floor Cleaner 1L",u:"bottle",k:0,p:[2.9,5.9]},{n:"Mold Remover Spray",u:"bottle",k:0,p:[3.5,6.9]},{n:"Oven Cleaner 300ml",u:"can",k:0,p:[3.5,6.9]},{n:"Disinfectant Wipes 80pk",u:"pack",k:0,p:[2.9,5.9]}],
+  },
+};
+function getMerchantProducts(storeId){
+  const idx=STORES.findIndex(s=>s.id===storeId);
+  if(idx<0)return[];
+  const store=STORES[idx];
+  const rng=mulberry32(5000+idx);
+  if(store.group==='darkstore'){
+    const pool=_PROD_POOL.darkstore;
+    const cats=Object.keys(pool);
+    const products=[];
+    cats.forEach(cat=>{
+      const items=pool[cat];
+      items.forEach(item=>{
+        const[lo,hi]=item.p||[1,10];
+        const price=Math.round((lo+rng()*(hi-lo))*10)/10;
+        const domestic=rng()<0.40;
+        const bio=rng()<0.15;
+        products.push({name:item.n,unit:item.u,price,kcal:item.k||0,domestic,bio,category:cat});
+      });
+    });
+    return products;
+  }
+  const pool=_PROD_POOL[store.type]||_PROD_POOL.restaurant;
+  const cats=Object.keys(pool);
+  const products=[];
+  cats.forEach(cat=>{
+    const items=pool[cat];
+    const count=Math.min(items.length,2+Math.floor(rng()*2));
+    const offset=Math.floor(rng()*items.length);
+    for(let i=0;i<count;i++){
+      const item=items[(offset+i)%items.length];
+      const[lo,hi]=store.type==='restaurant'?[9,40]:store.type==='cafe'?[3.5,12]:[3,11];
+      const price=Math.round((lo+rng()*(hi-lo))*10)/10;
+      const domestic=rng()<(store.type==='restaurant'?0.45:0.15);
+      const bio=rng()<(store.type==='restaurant'?0.25:0.08);
+      products.push({name:item.n,unit:item.u,price,kcal:item.k,domestic,bio,category:cat});
+    }
+  });
+  return products;
+}
+function _renderMerchantProducts(s){
+  const prods=getMerchantProducts(s.id);
+  if(!prods||!prods.length)return`<div style="padding:40px;text-align:center;color:var(--muted2);font-size:13px">No products found</div>`;
+  const cats=[...new Set(prods.map(p=>p.category))];
+  const sec=(title,count)=>`<tr><td colspan="7" style="background:var(--green-light);color:var(--dark);font-weight:700;padding:6px 12px;font-size:11px;letter-spacing:.4px;text-transform:uppercase">${title} <span style="font-weight:400;color:var(--muted)">(${count})</span></td></tr>`;
+  const badge=(v,color,label)=>v?`<span style="font-size:10px;padding:1px 6px;border-radius:8px;background:${color};font-weight:600">${label}</span>`:`<span style="font-size:10px;color:var(--muted2)">—</span>`;
+  const rows=cats.map(cat=>{
+    const items=prods.filter(p=>p.category===cat);
+    const head=sec(cat,items.length);
+    const body=items.map(p=>`<tr>
+      <td style="font-weight:500">${p.name}</td>
+      <td style="color:var(--muted)">${p.unit}</td>
+      <td style="font-weight:700">€${p.price.toFixed(2)}</td>
+      <td style="color:var(--muted)">${p.kcal>0?p.kcal+' kcal':'—'}</td>
+      <td>${badge(p.domestic,'#d1f0d8','🇫🇮 Domestic')}</td>
+      <td>${badge(p.bio,'#dcfce7','🌿 BIO')}</td>
+      <td style="font-size:11px;color:var(--muted)">${cat}</td>
+    </tr>`).join('');
+    return head+body;
+  }).join('');
+  return`<div>
+    <div style="font-size:12px;color:var(--muted);margin-bottom:10px">${prods.length} products · ${cats.length} categories</div>
+    <table class="tcard-table">
+      <thead><tr><th>Product</th><th>Unit</th><th>Price</th><th>KCAL</th><th>Domestic</th><th>BIO</th><th>Category</th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table>
+  </div>`;
+}
+
+function getCustPeriodRange(){
+  return _getPeriodRange(custPeriod,'custDateFrom','custDateTo',{hasAll:true,defaultWeek:true});
+}
+function setCustPeriod(p,btn){
+  custPeriod=p;
+  document.querySelectorAll('#apane-customers .period-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('custDateRange').style.display=p==='custom'?'flex':'none';
+  if(p!=='custom')renderCustomers();
+}
+function applyCustPeriod(){custPeriod='custom';renderCustomers();}
+function _setCustSortCol(key){
+  if(custSortKey===key){custSortDir*=-1;}else{custSortKey=key;custSortDir=-1;}
+  renderCustomers();
+}
+function setCustSort(s,btn){
+  // kept for any legacy callers; maps old keys to new state
+  const map={orders:'orders',profit:'gp',rate:'rate',value:'totalVal'};
+  custSortKey=map[s]||'gp';custSortDir=-1;
+  document.querySelectorAll('#apane-customers .fin-view-btn').forEach(b=>b.classList.remove('active'));
+  if(btn)btn.classList.add('active');
+  renderCustomers();
+}
+function renderCustomers(){
+  const{from,to}=getCustPeriodRange();
+  const histMap=getCustomerHistory(from,to);
+  // Aggregate per customer
+  const rows=[];
+  histMap.forEach((c,id)=>{
+    if(!c.orders.length)return;
+    let totalVal=0,totalComm=0,totalFee=0,totalCourier=0;
+    c.orders.forEach(o=>{
+      totalVal+=o.val;totalComm+=o.comm;totalFee+=o.fee;
+      totalCourier+=calcCourierShare(o.tripSize);
+    });
+    const gp=Math.round((totalComm+totalFee-totalCourier)*100)/100;
+    const periodMs=Math.max(1,to-from);const months=periodMs/(1000*60*60*24*30.44);
+    rows.push({id,name:c.name,addr:c.addr,orders:c.orders.length,totalVal,totalComm,totalFee,totalCourier,gp,rate:c.orders.length/months});
+  });
+  // Sort — bidirectional, custSortDir: -1=desc, 1=asc
+  rows.sort((a,b)=>{
+    let av,bv;
+    switch(custSortKey){
+      case'orders':  av=a.orders;bv=b.orders;break;
+      case'avgVal':  av=a.totalVal/a.orders;bv=b.totalVal/b.orders;break;
+      case'totalVal':av=a.totalVal;bv=b.totalVal;break;
+      case'comm':    av=a.totalComm;bv=b.totalComm;break;
+      case'fee':     av=a.totalFee;bv=b.totalFee;break;
+      case'cour':    av=a.totalCourier;bv=b.totalCourier;break;
+      case'gp':      av=a.gp;bv=b.gp;break;
+      case'rate':    av=a.rate;bv=b.rate;break;
+      default:       av=a.gp;bv=b.gp;
+    }
+    return av===bv?0:(av<bv?-custSortDir:custSortDir);
+  });
+  // Sortable thead — rewritten on every render to show active indicator
+  const csi=(k)=>custSortKey===k?`<span style="color:var(--green);margin-left:3px">${custSortDir===1?'↑':'↓'}</span>`:'';
+  const cth=(label,key)=>`<th style="cursor:pointer;user-select:none;text-align:right;white-space:nowrap" onclick="_setCustSortCol('${key}')">${label}${csi(key)}</th>`;
+  const custTheadEl=document.querySelector('#customerTableHead tr');
+  if(custTheadEl)custTheadEl.innerHTML=`<th>Customer</th>${cth('Orders','orders')}${cth('Avg Value','avgVal')}${cth('Total Value','totalVal')}${cth('Commission','comm')}${cth('Del. Fees','fee')}${cth('Courier Cost','cour')}${cth('Gross Profit','gp')}`;
+  // KPI cards
+  const totCusts=rows.length;
+  const totOrds=rows.reduce((s,r)=>s+r.orders,0);
+  const totVal=rows.reduce((s,r)=>s+r.totalVal,0);
+  const totGP=rows.reduce((s,r)=>s+r.gp,0);
+  document.getElementById('custKPIs').innerHTML=`
+    <div class="astat-card"><div class="astat-lbl">Customers</div><div class="astat-val g">${totCusts}</div><div class="astat-sub">with orders in period</div></div>
+    <div class="astat-card"><div class="astat-lbl">Total Orders</div><div class="astat-val g">${totOrds}</div></div>
+    <div class="astat-card"><div class="astat-lbl">Total Sales</div><div class="astat-val g">€${fmt0(totVal)}</div></div>
+    <div class="astat-card"><div class="astat-lbl">Gross Profit</div><div class="astat-val ${totGP>=0?'g':'r'}">€${fmt0(totGP)}</div></div>`;
+  // Table rows
+  if(!rows.length){
+    document.getElementById('customerTable').innerHTML=`<tr><td colspan="8" style="text-align:center;color:var(--muted2);padding:20px">No customer orders in this period</td></tr>`;
+    document.getElementById('customerTableFoot').innerHTML='';
+    return;
+  }
+  const custOrders=new Map();histMap.forEach((c,id)=>custOrders.set(id,c.orders));
+  document.getElementById('customerTable').innerHTML=rows.map(r=>{
+    const isExp=expandedCustomerId===r.id;
+    const chevron=isExp?'▼ ':'▶ ';
+    const mainRow=`<tr style="cursor:pointer" onclick="toggleCustomer('${r.id}')">
+      <td><b>${chevron}${r.name}</b><div style="font-size:10px;color:var(--muted2);font-family:monospace">${r.id}</div></td>
+      <td style="font-weight:600;text-align:right">${r.orders}</td>
+      <td style="text-align:right">€${fmt2(r.totalVal/r.orders)}</td>
+      <td style="font-weight:700;text-align:right">€${fmt2(r.totalVal)}</td>
+      <td style="color:var(--green);text-align:right">€${fmt2(r.totalComm)}</td>
+      <td style="color:var(--green);text-align:right">€${fmt2(r.totalFee)}</td>
+      <td style="color:var(--red);text-align:right">€${fmt2(r.totalCourier)}</td>
+      <td class="${r.gp>=0?'profit-pos':'profit-neg'}" style="text-align:right">€${fmt2(r.gp)}</td>
+    </tr>`;
+    if(!isExp)return mainRow;
+    const ords=custOrders.get(r.id)||[];
+    const detailRows=ords.map(o=>{
+      const oGP=Math.round((o.comm+o.fee-calcCourierShare(o.tripSize))*100)/100;
+      const d=o.date;const ds=`${String(d.getDate()).padStart(2,'0')}.${String(d.getMonth()+1).padStart(2,'0')}`;
+      return`<tr style="background:#f8faf7;font-size:11.5px">
+        <td style="padding-left:28px;color:var(--muted);font-family:monospace">${o.orderId}</td>
+        <td style="color:var(--muted)">${ds}</td>
+        <td colspan="2">${o.storeEmoji} ${o.storeName} · ${o.item}</td>
+        <td style="color:var(--green);text-align:right">€${fmt2(o.comm)}</td>
+        <td style="color:var(--green);text-align:right">€${fmt2(o.fee)}</td>
+        <td style="color:var(--red);text-align:right">€${fmt2(calcCourierShare(o.tripSize))}</td>
+        <td class="${oGP>=0?'profit-pos':'profit-neg'}" style="text-align:right">€${fmt2(oGP)}</td>
+      </tr>`;
+    }).join('');
+    const subGP=Math.round((r.totalComm+r.totalFee-r.totalCourier)*100)/100;
+    const subtotalRow=`<tr style="background:#eef7ec;font-size:12px;font-weight:700;border-top:1px solid var(--border)">
+      <td style="padding-left:28px">Subtotal — ${r.orders} orders</td>
+      <td style="text-align:right">${r.orders}</td>
+      <td style="text-align:right">€${fmt2(r.totalVal/r.orders)}</td>
+      <td style="text-align:right">€${fmt2(r.totalVal)}</td>
+      <td style="color:var(--green);text-align:right">€${fmt2(r.totalComm)}</td>
+      <td style="color:var(--green);text-align:right">€${fmt2(r.totalFee)}</td>
+      <td style="color:var(--red);text-align:right">€${fmt2(r.totalCourier)}</td>
+      <td class="${subGP>=0?'profit-pos':'profit-neg'}" style="text-align:right">€${fmt2(subGP)}</td>
+    </tr>`;
+    return mainRow+detailRows+subtotalRow;
+  }).join('');
+  // TOTAL footer row
+  const fVal=rows.reduce((s,r)=>s+r.totalVal,0);
+  const fComm=rows.reduce((s,r)=>s+r.totalComm,0);
+  const fFee=rows.reduce((s,r)=>s+r.totalFee,0);
+  const fCr=rows.reduce((s,r)=>s+r.totalCourier,0);
+  const fGP=Math.round((fComm+fFee-fCr)*100)/100;
+  document.getElementById('customerTableFoot').innerHTML=`<tr>
+    <td style="font-weight:700;color:var(--dark);background:var(--green-light);border-left:3px solid var(--green)">TOTAL (${totCusts} customers)</td>
+    <td style="font-weight:700;text-align:right;background:var(--green-light)">${totOrds}</td>
+    <td style="font-weight:700;text-align:right;background:var(--green-light)">€${fmt2(fVal/Math.max(1,totOrds))}</td>
+    <td style="font-weight:700;text-align:right;background:var(--green-light)">€${fmt2(fVal)}</td>
+    <td style="color:var(--green);font-weight:700;text-align:right;background:var(--green-light)">€${fmt2(fComm)}</td>
+    <td style="color:var(--green);font-weight:700;text-align:right;background:var(--green-light)">€${fmt2(fFee)}</td>
+    <td style="color:var(--red);font-weight:700;text-align:right;background:var(--green-light)">€${fmt2(fCr)}</td>
+    <td class="${fGP>=0?'profit-pos':'profit-neg'}" style="font-weight:700;text-align:right;background:var(--green-light)">€${fmt2(fGP)}</td>
+  </tr>`;
+}
+
+function toggleCustomer(id){
+  expandedCustomerId=expandedCustomerId===id?null:id;
+  renderCustomers();
+}
+
+function toggleAdminOrder(id){
+  expandedAdminOrderId=expandedAdminOrderId===id?null:id;
+  renderAdminOrders();
+}
+function _setAdminOrdSort(key){if(adminOrdSortKey===key){adminOrdSortDir*=-1;}else{adminOrdSortKey=key;adminOrdSortDir=-1;}renderAdminOrders();}
+
+// ══════════════════════════════════════════
+// RENDER — FINANCIALS
+// ══════════════════════════════════════════
+function setPeriod(p,btn){
+  finPeriod=p;
+  document.querySelectorAll('.period-btn').forEach(b=>b.classList.remove('active'));btn.classList.add('active');
+  document.getElementById('customDateRange').style.display=p==='custom'?'flex':'none';
+  if(p!=='custom')renderFinancials();
+}
+function applyCustomPeriod(){finPeriod='custom';renderFinancials();}
+
+function getPeriodRange(){
+  return _getPeriodRange(finPeriod,'finDateFrom','finDateTo');
+}
+
+function setFinView(v,btn){
+  finView=v;
+  document.querySelectorAll('.fin-view-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  const showSearch=v==='merchant'||v==='customer';
+  const srch=document.getElementById('finSearch');
+  srch.style.display=showSearch?'block':'none';
+  srch.placeholder=v==='merchant'?'Search merchant…':'Search customer ID…';
+  srch.value='';
+  // chart only shown for group view
+  document.getElementById('finChartWrap').style.display=v==='group'?'block':'none';
+  renderFinancials();
+}
+
+function renderFinancials(){
+  const{from,to}=getPeriodRange();
+  const{agg,mAgg,daily,totalOrders,totalTrips}=getRange(from,to);
+  // KPIs always shown
+  let totS=0,totC=0,totF=0,totCr=0,totO=0;
+  Object.values(agg).forEach(g=>{totS+=g.sales;totC+=g.commission;totF+=g.fees;totCr+=g.couriers;totO+=g.orders;});
+  const totGP=totC+totF-totCr;
+  const avgTrip=totalTrips>0?(totalOrders/totalTrips).toFixed(1):'—';
+  document.getElementById('finKPIs').innerHTML=`
+    <div class="astat-card"><div class="astat-lbl">Total Orders</div><div class="astat-val g">${totO.toLocaleString()}</div></div>
+    <div class="astat-card"><div class="astat-lbl">Gross Sales</div><div class="astat-val g">€${fmt0(totS)}</div><div class="astat-sub">total goods sold</div></div>
+    <div class="astat-card"><div class="astat-lbl">Commission</div><div class="astat-val g">€${fmt0(totC)}</div></div>
+    <div class="astat-card"><div class="astat-lbl">Delivery Fees</div><div class="astat-val g">€${fmt0(totF)}</div></div>
+    <div class="astat-card"><div class="astat-lbl">Courier Costs</div><div class="astat-val r">€${fmt0(totCr)}</div><div class="astat-sub">€20/trip · ${totalTrips} trips</div></div>
+    <div class="astat-card"><div class="astat-lbl">Gross Profit</div><div class="astat-val ${totGP>=0?'g':'r'}">€${fmt0(totGP)}</div><div class="astat-sub">avg ${avgTrip} ord/trip</div></div>`;
+  if(finView==='group')renderFinByGroup(agg,daily,totalOrders,totalTrips);
+  else if(finView==='merchant')renderFinByMerchant(mAgg);
+  else renderFinByCustomer();
+  renderFleetEfficiency(totalOrders,totalTrips);
+}
+
+function _setFinGroupSort(key){if(finGroupSortKey===key){finGroupSortDir*=-1;}else{finGroupSortKey=key;finGroupSortDir=-1;}renderFinancials();}
+function _setFinMerchSort(key){if(finMerchSortKey===key){finMerchSortDir*=-1;}else{finMerchSortKey=key;finMerchSortDir=-1;}renderFinancials();}
+
+function renderFinByGroup(agg,daily,totalOrders,totalTrips){
+  const labels={darkstore:'🏪 Darkstore',qsr:'🍔 QSR',restaurant:'🍽️ Restaurant',other:'🛒 Other'};
+  const R='text-align:right';
+  const GL='background:var(--green-light)';const GB='border-left:3px solid var(--green)';
+  const gsi=(k)=>finGroupSortKey===k?`<span style="color:var(--green);margin-left:3px">${finGroupSortDir===1?'↑':'↓'}</span>`:'';
+  const gth=(label,key)=>`<th style="cursor:pointer;user-select:none;${R};white-space:nowrap" onclick="_setFinGroupSort('${key}')">${label}${gsi(key)}</th>`;
+  // Sort groups
+  const sortedGroups=Object.keys(agg).slice().sort((a,b)=>{
+    const da=agg[a],db=agg[b];
+    const gpa=da.commission+da.fees-da.couriers,gpb=db.commission+db.fees-db.couriers;
+    let av,bv;
+    switch(finGroupSortKey){
+      case'orders': av=da.orders;bv=db.orders;break;
+      case'trips':  av=da.trips||0;bv=db.trips||0;break;
+      case'avg':    av=da.orders>0?da.sales/da.orders:0;bv=db.orders>0?db.sales/db.orders:0;break;
+      case'sales':  av=da.sales;bv=db.sales;break;
+      case'comm':   av=da.commission;bv=db.commission;break;
+      case'fees':   av=da.fees;bv=db.fees;break;
+      case'cour':   av=da.couriers;bv=db.couriers;break;
+      case'gp':     av=gpa;bv=gpb;break;
+      case'margin': av=da.sales>0?gpa/da.sales:0;bv=db.sales>0?gpb/db.sales:0;break;
+      default:      av=gpa;bv=gpb;
+    }
+    return av===bv?0:(av<bv?-finGroupSortDir:finGroupSortDir);
+  });
+  document.getElementById('finTable').innerHTML=sortedGroups.map(g=>{
+    const d=agg[g];const gp=d.commission+d.fees-d.couriers;const margin=d.sales>0?((gp/d.sales)*100).toFixed(1):0;
+    const trips=Math.round(d.trips||0);const apt=trips>0?(d.orders/trips).toFixed(1):'—';
+    return`<tr><td><b>${labels[g]}</b></td><td style="font-weight:600;${R}">${d.orders}</td><td style="color:var(--muted);${R}">${trips} / ${apt}x</td><td style="${R}">€${d.orders>0?(d.sales/d.orders).toFixed(2):0}</td><td style="${R}">€${fmt2(d.sales)}</td><td style="color:var(--green);${R}">€${fmt2(d.commission)}</td><td style="color:var(--green);${R}">€${fmt2(d.fees)}</td><td style="color:var(--red);${R}">€${fmt2(d.couriers)}</td><td style="font-weight:700;color:${gp>=0?'var(--green)':'var(--red)'};${R}">€${fmt2(gp)}</td><td style="${R}">${margin}%</td></tr>`;
+  }).join('');
+  let totS=0,totC=0,totF=0,totCr=0;
+  Object.values(agg).forEach(g=>{totS+=g.sales;totC+=g.commission;totF+=g.fees;totCr+=g.couriers;});
+  const gpTot=totC+totF-totCr;const mTot=totS>0?((gpTot/totS)*100).toFixed(1):0;
+  const totTrips=Math.round(Object.values(agg).reduce((a,g)=>a+(g.trips||0),0));
+  const totApt=totTrips>0?(totalOrders/totTrips).toFixed(1):'—';
+  document.getElementById('finTableFoot').innerHTML=`<tr>
+    <td style="font-weight:700;color:var(--dark);${GL};${GB}"><b>TOTAL</b></td>
+    <td style="font-weight:700;${R};${GL}">${totalOrders}</td>
+    <td style="font-weight:700;${R};${GL}">${totTrips} / ${totApt}x</td>
+    <td style="font-weight:700;${R};${GL}">€${totalOrders>0?(totS/totalOrders).toFixed(2):'0'}</td>
+    <td style="font-weight:700;${R};${GL}">€${fmt2(totS)}</td>
+    <td style="color:var(--green);font-weight:700;${R};${GL}">€${fmt2(totC)}</td>
+    <td style="color:var(--green);font-weight:700;${R};${GL}">€${fmt2(totF)}</td>
+    <td style="color:var(--red);font-weight:700;${R};${GL}">€${fmt2(totCr)}</td>
+    <td style="color:${gpTot>=0?'var(--green)':'var(--red)'};font-weight:700;${R};${GL}">€${fmt2(gpTot)}</td>
+    <td style="font-weight:700;${R};${GL}">${mTot}%</td>
+  </tr>`;
+  document.querySelector('#apane-financials .table-card-head').textContent='P&L by Group';
+  document.querySelector('#apane-financials thead tr').innerHTML=`<th>Group</th>${gth('Orders','orders')}${gth('Trips / Avg','trips')}${gth('Avg Value','avg')}${gth('Gross Sales','sales')}${gth('Commission','comm')}${gth('Del. Fees','fees')}${gth('Courier Costs','cour')}${gth('Gross Profit','gp')}${gth('Margin %','margin')}`;
+  const chartDays=daily.slice(-31);const maxAbs=Math.max(1,...chartDays.map(d=>Math.abs(d.profit)));
+  document.getElementById('finChart').innerHTML=chartDays.map(d=>{
+    const h=Math.max(4,Math.round(Math.abs(d.profit)/maxAbs*110));
+    const neg=d.profit<0;
+    const lbl=d.date.toLocaleDateString('fi-FI',{day:'numeric',month:'short'});
+    return`<div class="chart-bar-wrap"><div class="chart-bar${neg?' neg':''}" style="height:${h}px" data-tip="${lbl}: €${d.profit.toFixed(0)} (${d.orders}ord)"></div><div class="chart-lbl">${lbl.split(' ')[0]}</div></div>`;
+  }).join('');
+}
+
+function renderFinByMerchant(mAgg){
+  const R='text-align:right';
+  const GL='background:var(--green-light)';const GB='border-left:3px solid var(--green)';
+  const msi=(k)=>finMerchSortKey===k?`<span style="color:var(--green);margin-left:3px">${finMerchSortDir===1?'↑':'↓'}</span>`:'';
+  const mth=(label,key)=>`<th style="cursor:pointer;user-select:none;${R};white-space:nowrap" onclick="_setFinMerchSort('${key}')">${label}${msi(key)}</th>`;
+  const q=(document.getElementById('finSearch').value||'').toLowerCase();
+  document.querySelector('#apane-financials .table-card-head').textContent='P&L by Merchant';
+  document.querySelector('#apane-financials thead tr').innerHTML=`<th>Merchant</th><th>Group</th>${mth('Orders','orders')}${mth('Avg Value','avg')}${mth('Gross Sales','sales')}${mth('Commission','comm')}${mth('Del. Fees','fees')}${mth('Trip Cost','cour')}${mth('Gross Profit','gp')}${mth('Margin %','margin')}`;
+  // 1. Filter by search
+  const filtered=STORES.filter(s=>!q||s.name.toLowerCase().includes(q));
+  // 2. Sort filtered
+  const sortedMerchs=filtered.slice().sort((a,b)=>{
+    const da=mAgg[a.id]||{orders:0,sales:0,commission:0,fees:0,couriers:0};
+    const db=mAgg[b.id]||{orders:0,sales:0,commission:0,fees:0,couriers:0};
+    const gpa=da.commission+da.fees-da.couriers,gpb=db.commission+db.fees-db.couriers;
+    let av,bv;
+    switch(finMerchSortKey){
+      case'orders': av=da.orders;bv=db.orders;break;
+      case'avg':    av=da.orders>0?da.sales/da.orders:0;bv=db.orders>0?db.sales/db.orders:0;break;
+      case'sales':  av=da.sales;bv=db.sales;break;
+      case'comm':   av=da.commission;bv=db.commission;break;
+      case'fees':   av=da.fees;bv=db.fees;break;
+      case'cour':   av=da.couriers;bv=db.couriers;break;
+      case'gp':     av=gpa;bv=gpb;break;
+      case'margin': av=da.sales>0?gpa/da.sales:0;bv=db.sales>0?gpb/db.sales:0;break;
+      default:      av=gpa;bv=gpb;
+    }
+    return av===bv?0:(av<bv?-finMerchSortDir:finMerchSortDir);
+  });
+  const rows=sortedMerchs.map(s=>{
+    const d=mAgg[s.id]||{orders:0,sales:0,commission:0,fees:0,couriers:0};
+    const gp=d.commission+d.fees-d.couriers;
+    const margin=d.sales>0?((gp/d.sales)*100).toFixed(1):0;
+    return`<tr><td><b>${s.emoji} ${s.name}</b></td><td><span class="mg mg-${s.group}">${s.group}</span></td><td style="font-weight:600;${R}">${d.orders}</td><td style="${R}">€${d.orders>0?(d.sales/d.orders).toFixed(2):'—'}</td><td style="${R}">€${fmt2(d.sales)}</td><td style="color:var(--green);${R}">€${fmt2(d.commission)}</td><td style="color:var(--green);${R}">€${fmt2(d.fees)}</td><td style="color:var(--red);${R}">€${fmt2(d.couriers)}</td><td class="${gp>=0?'profit-pos':'profit-neg'}" style="${R}">€${fmt2(gp)}</td><td style="${R}">${margin}%</td></tr>`;
+  }).join('');
+  document.getElementById('finTable').innerHTML=rows||`<tr><td colspan="10" style="text-align:center;color:var(--muted2);padding:20px">No merchants match</td></tr>`;
+  // TOTAL row over filtered merchants (pre-sort, same set)
+  let tO=0,tS=0,tC=0,tF=0,tCr=0;
+  filtered.forEach(s=>{const d=mAgg[s.id]||{orders:0,sales:0,commission:0,fees:0,couriers:0};tO+=d.orders;tS+=d.sales;tC+=d.commission;tF+=d.fees;tCr+=d.couriers;});
+  tS=Math.round(tS*100)/100;tC=Math.round(tC*100)/100;tF=Math.round(tF*100)/100;tCr=Math.round(tCr*100)/100;
+  const tGP=Math.round((tC+tF-tCr)*100)/100;
+  const tMargin=tS>0?((tGP/tS)*100).toFixed(1):0;
+  document.getElementById('finTableFoot').innerHTML=filtered.length?`<tr>
+    <td style="font-weight:700;color:var(--dark);${GL};${GB}">TOTAL — ${filtered.length} merchants</td>
+    <td style="${GL}"></td>
+    <td style="font-weight:700;${R};${GL}">${tO}</td>
+    <td style="font-weight:700;${R};${GL}">€${tO>0?(tS/tO).toFixed(2):'—'}</td>
+    <td style="font-weight:700;${R};${GL}">€${fmt2(tS)}</td>
+    <td style="color:var(--green);font-weight:700;${R};${GL}">€${fmt2(tC)}</td>
+    <td style="color:var(--green);font-weight:700;${R};${GL}">€${fmt2(tF)}</td>
+    <td style="color:var(--red);font-weight:700;${R};${GL}">€${fmt2(tCr)}</td>
+    <td class="${tGP>=0?'profit-pos':'profit-neg'}" style="font-weight:700;${R};${GL}">€${fmt2(tGP)}</td>
+    <td style="font-weight:700;${R};${GL}">${tMargin}%</td>
+  </tr>`:'';
+}
+
+function _setFinCustSort(key){if(finCustSortKey===key){finCustSortDir*=-1;}else{finCustSortKey=key;finCustSortDir=-1;}renderFinancials();}
+function renderFinByCustomer(){
+  const R='text-align:right';
+  const GL='background:var(--green-light)';const GB='border-left:3px solid var(--green)';
+  const q=(document.getElementById('finSearch').value||'').toLowerCase();
+  const isToday=finPeriod==='today';
+  document.querySelector('#apane-financials .table-card-head').textContent='P&L by Customer — Live Session';
+  const csi=(k)=>finCustSortKey===k?`<span style="color:var(--green);margin-left:3px">${finCustSortDir===1?'↑':'↓'}</span>`:'';
+  const cth=(label,key)=>`<th style="cursor:pointer;user-select:none;${R};white-space:nowrap" onclick="_setFinCustSort('${key}')">${label}${csi(key)}</th>`;
+  document.querySelector('#apane-financials thead tr').innerHTML=`<th>Customer ID</th>${cth('Orders','orders')}${cth('Total Spent','spent')}${cth('Avg Value','avg')}${cth('Commission','comm')}${cth('Trip Cost Share','tripCost')}${cth('Gross Profit','gp')}`;
+  const custMap={};
+  orders.filter(o=>o.status==='DELIVERED').forEach(o=>{
+    if(!custMap[o.customerId])custMap[o.customerId]={orders:0,spent:0,comm:0,feeRev:0,tripCost:0};
+    const c=custMap[o.customerId];
+    c.orders++;c.spent+=o.val+o.fee;c.comm+=o.comm;c.feeRev+=o.fee;
+    const trip=o.tripId?trips.find(t=>t.id===o.tripId):null;
+    c.tripCost+=calcCourierShare(trip?trip.ordIds.length:1);
+  });
+  const base=Object.entries(custMap).filter(([id])=>!q||id.toLowerCase().includes(q));
+  // Sort
+  base.sort((a,b)=>{
+    const da=a[1],db=b[1];
+    const gpa=calcOrderProfit(da.comm,da.feeRev,da.tripCost),gpb=calcOrderProfit(db.comm,db.feeRev,db.tripCost);
+    let av,bv;
+    switch(finCustSortKey){
+      case'orders':  av=da.orders;bv=db.orders;break;
+      case'spent':   av=da.spent;bv=db.spent;break;
+      case'avg':     av=da.spent/da.orders;bv=db.spent/db.orders;break;
+      case'comm':    av=da.comm;bv=db.comm;break;
+      case'tripCost':av=da.tripCost;bv=db.tripCost;break;
+      case'gp':      av=gpa;bv=gpb;break;
+      default:       av=da.spent;bv=db.spent;
+    }
+    return av===bv?0:(av<bv?-finCustSortDir:finCustSortDir);
+  });
+  const periodNote=!isToday?`<tr><td colspan="7" style="text-align:center;background:#fffbeb;color:#92400e;padding:8px 16px;font-size:12px;border-bottom:1px solid var(--yellow-border)">⚠️ Customer IDs are only tracked in the live session — historical periods show the same live data</td></tr>`:'';
+  const rows=base.map(([id,d])=>{
+    const gp=calcOrderProfit(d.comm,d.feeRev,d.tripCost);
+    return`<tr><td style="font-family:monospace;font-weight:600">${id}</td><td style="${R}">${d.orders}</td><td style="font-weight:700;${R}">€${fmt2(d.spent)}</td><td style="${R}">€${fmt2(d.spent/d.orders)}</td><td style="color:var(--green);${R}">€${fmt2(d.comm)}</td><td style="color:var(--red);${R}">€${fmt2(d.tripCost)}</td><td class="${gp>=0?'profit-pos':'profit-neg'}" style="${R}">€${fmt2(gp)}</td></tr>`;
+  }).join('');
+  document.getElementById('finTable').innerHTML=periodNote+(rows||`<tr><td colspan="7" style="text-align:center;color:var(--muted2);padding:20px">No delivered orders yet — data appears after first deliveries</td></tr>`);
+  // TOTAL row
+  if(base.length){
+    let tO=0,tSp=0,tC=0,tTr=0,tFR=0;
+    base.forEach(([,d])=>{tO+=d.orders;tSp+=d.spent;tC+=d.comm;tTr+=d.tripCost;tFR+=d.feeRev;});
+    tSp=Math.round(tSp*100)/100;tC=Math.round(tC*100)/100;tTr=Math.round(tTr*100)/100;
+    const tGP=Math.round((tC+tFR-tTr)*100)/100;
+    document.getElementById('finTableFoot').innerHTML=`<tr>
+      <td style="font-weight:700;color:var(--dark);${GL};${GB}">TOTAL — ${base.length} customers</td>
+      <td style="font-weight:700;${R};${GL}">${tO}</td>
+      <td style="font-weight:700;${R};${GL}">€${fmt2(tSp)}</td>
+      <td style="font-weight:700;${R};${GL}">€${fmt2(tO>0?tSp/tO:0)}</td>
+      <td style="color:var(--green);font-weight:700;${R};${GL}">€${fmt2(tC)}</td>
+      <td style="color:var(--red);font-weight:700;${R};${GL}">€${fmt2(tTr)}</td>
+      <td class="${tGP>=0?'profit-pos':'profit-neg'}" style="font-weight:700;${R};${GL}">€${fmt2(tGP)}</td>
+    </tr>`;
+  }else{document.getElementById('finTableFoot').innerHTML='';}
+}
+
+function renderFleetEfficiency(histOrders,histTrips){
+  // Live session stats
+  const liveTrips=trips;
+  const liveCompleted=liveTrips.filter(t=>t.status==='completed');
+  const liveActive=liveTrips.filter(t=>t.status==='active');
+  const liveSolo=liveCompleted.filter(t=>t.ordIds.length===1).length;
+  const liveMulti=liveCompleted.filter(t=>t.ordIds.length>1).length;
+  const liveAvg=liveCompleted.length>0?(liveCompleted.reduce((s,t)=>s+t.ordIds.length,0)/liveCompleted.length).toFixed(1):'—';
+  const liveBatchRate=liveCompleted.length>0?Math.round(liveMulti/liveCompleted.length*100):0;
+  // Period-aware stat cards: use historical data for non-today periods
+  const useHist=finPeriod!=='today';
+  const histAvg=histTrips>0?(histOrders/histTrips).toFixed(1):'—';
+  const histSolo=Math.round(histTrips*0.20);
+  const histMulti=histTrips-histSolo;
+  const histBatchRate=histTrips>0?80:0;
+  const cardAvg=useHist?histAvg:liveAvg;
+  const cardBatchRate=useHist?histBatchRate:liveBatchRate;
+  const cardSolo=useHist?histSolo:liveSolo;
+  const cardMulti=useHist?histMulti:liveMulti;
+  const cardNote=useHist?'period avg':'live session';
+  document.getElementById('fleetEffPeriodNote').textContent=`${useHist?'Period':'Live session'}: ${histOrders} orders · ${histTrips} trips · ${histAvg}x avg`;
+  document.getElementById('fleetEffStats').innerHTML=`
+    <div class="fes"><div class="fes-val" style="color:var(--green)">${cardAvg}</div><div class="fes-lbl">Avg Orders/Trip</div><div style="font-size:10px;color:var(--muted2)">${cardNote}</div></div>
+    <div class="fes"><div class="fes-val" style="color:var(--blue)">${cardBatchRate}%</div><div class="fes-lbl">Batching Rate</div><div style="font-size:10px;color:var(--muted2)">${cardNote}</div></div>
+    <div class="fes"><div class="fes-val">${cardSolo}</div><div class="fes-lbl">Solo Trips</div><div style="font-size:10px;color:var(--muted2)">${cardNote}</div></div>
+    <div class="fes"><div class="fes-val" style="color:var(--green)">${cardMulti}</div><div class="fes-lbl">Multi-Stop Trips</div><div style="font-size:10px;color:var(--muted2)">${cardNote}</div></div>`;
+  const allTrips=[...liveActive,...liveCompleted].slice(0,20);
+  if(!allTrips.length){
+    document.getElementById('fleetEffBody').innerHTML=`<tr><td colspan="8" style="text-align:center;color:var(--muted2);padding:16px;font-size:12px">No trips dispatched yet — trips form after queue batch windows expire</td></tr>`;
+    return;
+  }
+  document.getElementById('fleetEffBody').innerHTML=allTrips.map(t=>{
+    const courier=couriers.find(c=>c.id===t.courierId);
+    const merchants=[...new Set(t.ordIds.map(oid=>{const o=orders.find(x=>x.id===oid);return o?o.storeName:'?';}))].join(', ');
+    const isExp=expandedTripId===t.id;
+    const statusBadge=t.status==='active'?`<span class="sbadge s-DELIVERING">Active</span>`:`<span class="sbadge s-DELIVERED">Done</span>`;
+    const profitCls=t.profit>=0?'profit-pos':'profit-neg';
+    // Expandable detail rows
+    const detailRows=t.ordIds.map(oid=>{
+      const o=orders.find(x=>x.id===oid);if(!o)return'';
+      const share=calcCourierShare(t.ordIds.length);
+      const oProfit=o.comm+o.fee-share;
+      return`<tr><td colspan="8" style="padding:5px 12px 5px 28px;background:#f8faf7;border-bottom:1px solid var(--border);font-size:11.5px">
+        <span style="font-weight:700;color:var(--green)">${o.id}</span>
+        → ${o.storeEmoji} ${o.storeName} → 📍 ${o.addr}
+        &nbsp;·&nbsp; €${o.val.toFixed(2)} &nbsp;·&nbsp; comm €${o.comm.toFixed(2)} &nbsp;·&nbsp; fee €${o.fee.toFixed(2)} &nbsp;·&nbsp; trip share €${share.toFixed(2)}
+        &nbsp;·&nbsp; <span class="${oProfit>=0?'profit-pos':'profit-neg'}">profit €${oProfit.toFixed(2)}</span>
+      </td></tr>`;
+    }).join('');
+    return`<tr class="trip-row${isExp?' expanded':''}" onclick="toggleTripRow('${t.id}')">
+      <td style="font-weight:700;color:var(--blue)">${t.id}</td>
+      <td>${courier?courier.name:'—'}</td>
+      <td style="font-weight:700">${t.ordIds.length}</td>
+      <td style="font-size:11px;color:var(--muted);max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${merchants}</td>
+      <td>${statusBadge}</td>
+      <td style="color:var(--green)">€${t.revenue.toFixed(2)}</td>
+      <td style="color:var(--red)">€${t.cost.toFixed(2)}</td>
+      <td class="${profitCls}">€${t.profit.toFixed(2)}</td>
+    </tr>${isExp?detailRows:''}`;
+  }).join('');
+}
+
+function toggleTripRow(tid){
+  expandedTripId=expandedTripId===tid?null:tid;
+  renderFinancials(); // re-render with correct historical context
+}
+
+// ══════════════════════════════════════════
+// UTILS
+// ══════════════════════════════════════════
+function fmtTime(ts){const d=new Date(ts);return d.getHours().toString().padStart(2,'0')+':'+d.getMinutes().toString().padStart(2,'0');}
+function fmtTimeMs(ts){return new Date(ts).toTimeString().slice(0,8);}
+function fmtStatus(s){return{PLACED:'Placed',CONFIRMED:'Confirmed',PREPARING:'Preparing',PICKED_UP:'Picked Up',DELIVERING:'Delivering',DELIVERED:'Delivered',CANCELLED:'Cancelled'}[s]||s;}
+function urgLbl(u){return{red:'🔴 CRITICAL',yellow:'🟡 WARNING',green:'🟢 ON TIME',paused:'⏸ PAUSED',resolved:'✅ RESOLVED',cancelled:'❌ CANCELLED'}[u]||u;}
+function fmt0(n){return Math.round(n).toLocaleString('fi-FI');}
+function fmt2(n){return n.toFixed(2);}
+let notifTimer=null;
+function showNotif(msg,isAlert){
+  const el=document.getElementById('notif');el.textContent=msg;el.classList.toggle('alert',!!isAlert);el.classList.add('show');
+  clearTimeout(notifTimer);notifTimer=setTimeout(()=>el.classList.remove('show'),3200);
+}
+function updateClock(){document.getElementById('clock').textContent=new Date().toTimeString().slice(0,8);}
+
+// ══════════════════════════════════════════
+// TAB SWITCHING
+// ══════════════════════════════════════════
+function switchTab(tab,btn){
+  document.querySelectorAll('.tab-pane').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+  document.getElementById('tab-'+tab).classList.add('active');btn.classList.add('active');
+  if(tab==='fleet'){initFleetMap();setTimeout(()=>fleetMap&&fleetMap.invalidateSize(),100);}
+  if(tab==='dashboard')setTimeout(()=>map&&map.invalidateSize(),100);
+  if(tab==='admin'){renderAdminOrders();renderFinancials();}
+  if(tab==='ordermgmt'){renderOM();if(selectedOrderId)renderOrderDetail(selectedOrderId);}
+}
+function setMixPeriod(key,btn){
+  mixPeriod=key;
+  document.querySelectorAll('#apane-mix .period-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  const dr=document.getElementById('mixDateRange');
+  if(dr)dr.style.display=key==='custom'?'flex':'none';
+  if(key!=='custom')renderMix();
+}
+function applyMixPeriod(){
+  mixDateFrom=document.getElementById('mixDateFrom').value;
+  mixDateTo=document.getElementById('mixDateTo').value;
+  if(mixDateFrom&&mixDateTo)renderMix();
+}
+function renderMix(){
+  const {from,to,label}=_getMixPeriodRange();
+  const data=_getMixEvolution(from,to);
+  if(!data.length){
+    document.getElementById('mixKPIs').innerHTML='';
+    document.getElementById('mixContent').innerHTML='<p style="color:var(--muted);font-size:13px">No data available for this period.</p>';
+    return;
+  }
+  const first=data[0];
+  const last=data[data.length-1];
+  // Single pass: accumulate per-segment totals
+  const totOrders={qsr:0,restaurant:0,other:0,darkstore:0};
+  const totRev={qsr:0,restaurant:0,other:0,darkstore:0};
+  const totProf={qsr:0,restaurant:0,other:0,darkstore:0};
+  data.forEach(day=>{
+    ['qsr','restaurant','other','darkstore'].forEach(s=>{
+      totOrders[s]+=day.segOrders[s];
+      totRev[s]+=day.segRevenue[s];
+      totProf[s]+=day.segProfit[s];
+    });
+  });
+  const grandOrders=Object.values(totOrders).reduce((a,b)=>a+b,0);
+  const grandRev=Object.values(totRev).reduce((a,b)=>a+b,0);
+  const grandProf=Object.values(totProf).reduce((a,b)=>a+b,0);
+  // KPI 1: Darkstore share on last day of period; pp delta vs first day
+  const dsPct=Math.round(last.mix.darkstore*100);
+  const dsChg=dsPct-Math.round(first.mix.darkstore*100);
+  const kpi1Sub=data.length>1?`${dsChg>=0?'+':''}${dsChg}pp vs period start`:'today\'s mix share';
+  // KPI 2: Darkstore revenue share — period aggregate
+  const dsRevShare=grandRev>0?Math.round(totRev.darkstore/grandRev*100):0;
+  const kpi2Sub=data.length>1?'of period GMV':'of today\'s GMV';
+  // KPI 3: Blended profit/order — period aggregate
+  const blendedPPO=grandOrders>0?(grandProf/grandOrders).toFixed(2):'—';
+  const kpi3Sub=data.length>1?'period avg (all segments)':'today (all segments)';
+  // KPI 4: Days until darkstore leads QSR — based on last day
+  let daysToTop='Already #1';
+  if(last.mix.darkstore<last.mix.qsr){
+    const future=Math.ceil((last.mix.qsr-last.mix.darkstore)/(0.05/30.44+0.05/30.44));
+    daysToTop='~'+future+' days';
+  }
+  document.getElementById('mixKPIs').innerHTML=
+    `<div class="astat-card"><div class="astat-lbl">Darkstore Share</div><div class="astat-val g">${dsPct}%</div><div class="astat-sub">${kpi1Sub}</div></div>`+
+    `<div class="astat-card"><div class="astat-lbl">Darkstore Revenue Share</div><div class="astat-val g">${dsRevShare}%</div><div class="astat-sub">${kpi2Sub}</div></div>`+
+    `<div class="astat-card"><div class="astat-lbl">Blended Profit/Order</div><div class="astat-val g">€${blendedPPO}</div><div class="astat-sub">${kpi3Sub}</div></div>`+
+    `<div class="astat-card"><div class="astat-lbl">Darkstore Leads QSR</div><div class="astat-val">${daysToTop}</div><div class="astat-sub">by order volume (period end)</div></div>`;
+  // Stacked bar chart — granularity: daily ≤31d, weekly ≤120d, monthly >120d
+  const SEG_COLORS={qsr:'#f59e0b',restaurant:'#ef4444',other:'#8b5cf6',darkstore:'#0ea5e9'};
+  const SEG_LABELS={qsr:'QSR',restaurant:'Restaurant',other:'Other',darkstore:'Darkstore'};
+  const nDays=data.length;
+  // Named periods use prescribed granularity; custom falls back to data.length heuristic
+  const gran=mixPeriod==='year'?'monthly':mixPeriod==='3months'?'weekly':mixPeriod==='custom'?(nDays<=31?'daily':nDays<=120?'weekly':'monthly'):'daily';
+  function _mixBucketKey(date){
+    if(gran==='daily')return date.toISOString().slice(0,10);
+    if(gran==='weekly'){
+      const d2=new Date(date);const dow=d2.getDay();
+      d2.setDate(d2.getDate()+(dow===0?-6:1-dow));
+      return d2.toISOString().slice(0,10);
+    }
+    return`${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}`;
+  }
+  const bucketMap=new Map();
+  data.forEach(day=>{
+    const key=_mixBucketKey(day.date);
+    if(!bucketMap.has(key))bucketMap.set(key,{key,firstDate:day.date,lastDate:day.date,nOrders:0,segOrders:{qsr:0,restaurant:0,other:0,darkstore:0}});
+    const b=bucketMap.get(key);
+    b.lastDate=day.date;b.nOrders+=day.nOrders;
+    ['qsr','restaurant','other','darkstore'].forEach(s=>b.segOrders[s]+=day.segOrders[s]);
+  });
+  const buckets=[...bucketMap.values()];
+  const BAR_W=Math.max(gran==='daily'?4:8,Math.floor(540/buckets.length));
+  let bars='';
+  buckets.forEach((b,i)=>{
+    const bmix={};['qsr','restaurant','other','darkstore'].forEach(s=>{bmix[s]=b.nOrders>0?b.segOrders[s]/b.nOrders:0;});
+    const segs=['darkstore','other','restaurant','qsr'];
+    let segments='';
+    segs.forEach(s=>{
+      const pct=Math.round(bmix[s]*1000)/10;
+      if(pct>0)segments+=`<div style="flex:0 0 ${pct}%;background:${SEG_COLORS[s]};min-height:1px" title="${SEG_LABELS[s]}: ${pct.toFixed(1)}%"></div>`;
+    });
+    const isLast=i===buckets.length-1;
+    const tipDate=gran==='weekly'?`Week of ${b.firstDate.toLocaleDateString('fi-FI')}`:gran==='monthly'?b.key:b.firstDate.toLocaleDateString('fi-FI');
+    bars+=`<div style="display:flex;flex-direction:column-reverse;width:${BAR_W}px;height:120px;cursor:default;${isLast?'outline:2px solid var(--green);outline-offset:-1px':''}" title="${tipDate} | ${b.nOrders} orders">${segments}</div>`;
+  });
+  const granLabel=gran==='daily'?'daily':gran==='weekly'?'weekly':'monthly';
+  const legend=Object.entries(SEG_COLORS).map(([s,c])=>`<span style="display:inline-flex;align-items:center;gap:4px;margin-right:12px;font-size:11.5px"><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:${c}"></span>${SEG_LABELS[s]}</span>`).join('');
+  // Segment table — period totals
+  const rows=['qsr','restaurant','other','darkstore'].map(s=>{
+    const margin=totRev[s]>0?Math.round(totProf[s]/totRev[s]*1000)/10:0;
+    const profCls=totProf[s]>=0?'profit-pos':'profit-neg';
+    return `<tr><td>${SEG_LABELS[s]}</td><td style="text-align:right">${totOrders[s]}</td><td style="text-align:right">€${fmt2(totRev[s]/Math.max(1,totOrders[s]))}</td><td style="text-align:right">€${fmt2(totRev[s])}</td><td style="text-align:right"><span class="${profCls}">€${fmt2(totProf[s])}</span></td><td style="text-align:right">${margin.toFixed(1)}%</td></tr>`;
+  }).join('');
+  const totMargin=grandRev>0?Math.round(grandProf/grandRev*1000)/10:0;
+  const totProfCls=grandProf>=0?'profit-pos':'profit-neg';
+  const nLabel=data.length===1?'1d':`${data.length}d`;
+  const totFootRow=`<tr><td style="background:var(--green-light);border-left:3px solid var(--green);color:var(--dark);font-weight:600">TOTAL (${nLabel})</td><td style="background:var(--green-light);text-align:right;font-weight:600">${grandOrders}</td><td style="background:var(--green-light);text-align:right;font-weight:600">€${fmt2(grandRev/Math.max(1,grandOrders))}</td><td style="background:var(--green-light);text-align:right;font-weight:600">€${fmt2(grandRev)}</td><td style="background:var(--green-light);text-align:right;font-weight:600"><span class="${totProfCls}">€${fmt2(grandProf)}</span></td><td style="background:var(--green-light);text-align:right;font-weight:600">${totMargin.toFixed(1)}%</td></tr>`;
+  document.getElementById('mixContent').innerHTML=
+    `<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><div>${legend}</div><span style="font-size:10.5px;color:var(--muted2);background:#f0f4f0;padding:2px 7px;border-radius:10px">${granLabel} buckets</span></div>`+
+    `<div style="display:flex;align-items:flex-end;gap:1px;height:120px;padding-bottom:0;margin-bottom:4px;overflow-x:auto">${bars}</div>`+
+    `<div style="display:flex;justify-content:space-between;font-size:10.5px;color:var(--muted);margin-bottom:16px"><span>${first.date.toLocaleDateString('fi-FI')}</span><span>${last.date.toLocaleDateString('fi-FI')}</span></div>`+
+    `<table class="tcard-table" style="margin-top:0">`+
+    `<thead><tr><th>Segment</th><th style="text-align:right">Orders</th><th style="text-align:right">Avg Value</th><th style="text-align:right">Total GMV</th><th style="text-align:right">Gross Profit</th><th style="text-align:right">Margin %</th></tr></thead>`+
+    `<tbody>${rows}</tbody><tfoot>${totFootRow}</tfoot></table>`;
+}
+function switchAdmin(pane,btn){
+  document.querySelectorAll('.admin-pane').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.atab').forEach(b=>b.classList.remove('active'));
+  document.getElementById('apane-'+pane).classList.add('active');btn.classList.add('active');
+  if(pane==='financials')renderFinancials();else if(pane==='merchant-settings')renderMerchantSettings();else if(pane==='customers')renderCustomers();else if(pane==='mix')renderMix();else renderAdminOrders();
+}
+
+// ══════════════════════════════════════════
+// PRELOAD
+// ══════════════════════════════════════════
+function preload(){
+  const presets=['DELIVERED','DELIVERED','DELIVERED','DELIVERING','DELIVERING','PREPARING','PREPARING','CONFIRMED','PLACED','PICKED_UP','DELIVERING','PLACED'];
+  presets.forEach((st,i)=>{
+    const o=newOrder(true);o.fresh=false;
+    o.createdAt=Date.now()-(presets.length-i)*260000;o.statusAt=Date.now()-i*35000;
+    const all=['PLACED','CONFIRMED','PREPARING','PICKED_UP','DELIVERING','DELIVERED'];
+    const idx=all.indexOf(st);o.status=st;
+    o.statusHistory=all.slice(0,idx+1).map((s,j)=>({status:s,timestamp:o.createdAt+j*42000}));
+    if(idx>=1){o.sla.stages[0].startAt=o.createdAt+10000;o.sla.stages[0].status='active';}
+    if(idx>=3){const s0=o.sla.stages[0];s0.completedAt=o.createdAt+62000;s0.actual=ri(10,25);s0.status='done';const s1=o.sla.stages[1];s1.startAt=o.createdAt+62000;s1.status='active';}
+    if(idx>=4){const s1=o.sla.stages[1];s1.completedAt=o.createdAt+120000;s1.actual=ri(10,25);s1.status='done';const s2=o.sla.stages[2];s2.startAt=o.createdAt+120000;s2.status='active';}
+    if(st==='DELIVERED'){const s2=o.sla.stages[2];s2.completedAt=o.createdAt+215000;s2.actual=ri(10,25);s2.status='done';totalRevenue+=o.val;totalCommission+=o.comm;totalFees+=o.fee;deliveryTimes.push(ri(20,45));}
+    o.urgency=calcUrgency(o);
+    if(['DELIVERING','PICKED_UP'].includes(st)){const av=couriers.filter(c=>c.status==='available');if(av.length){const c=av[0];c.status='delivering';c.orderId=o.id;o.courierId=c.id;c.tLat=o.dLat;c.tLng=o.dLng;c.phase='to_customer';}}
+  });
+  // Preload TRIP-000: 2 McDonald's Kamppi orders already DELIVERING
+  // This ensures Fleet Efficiency shows live trip data on first demo open
+  {
+    const ts=STORES.find(s=>s.id==='merch_04'); // McDonald's Kamppi
+    const now=Date.now();
+    const mkPreloadOrd=(idx)=>{
+      orderIdCtr++;
+      const dLat=ts.lat+(idx===0?0.018:-0.015);
+      const dLng=ts.lng+(idx===0?0.022:0.028);
+      const val=Math.round((10+idx*5)*100)/100;
+      const comm=Math.round(val*ts.commission*100)/100;
+      const o={
+        id:`EB-${orderIdCtr}`,customerId:`cust_${700+idx}`,
+        merchantId:ts.id,storeName:ts.name,storeEmoji:ts.emoji,
+        storeType:ts.type,storeGroup:ts.group,
+        storeLat:ts.lat,storeLng:ts.lng,storePhone:randPhone(),
+        courierId:'cour_01',tripId:'TRIP-000',
+        addr:ADDRS[idx],item:MENUS.qsr[idx],val,comm,fee:calcFee('qsr',val),
+        status:'DELIVERING',
+        statusHistory:[
+          {status:'PLACED',timestamp:now-180000},
+          {status:'CONFIRMED',timestamp:now-160000},
+          {status:'PREPARING',timestamp:now-120000},
+          {status:'PICKED_UP',timestamp:now-60000},
+          {status:'DELIVERING',timestamp:now-30000},
+        ],
+        createdAt:now-180000,statusAt:now-30000,
+        sla:buildSLA(20),urgency:'green',fresh:false,dLat,dLng,
+        resolvedBy:null,resolvedAt:null,pausedUntil:null,
+        inQueue:false,queuedAt:now-200000,
+        batchWindowMs:BATCH_WINDOW_QSR,
+        etaBufferLabel:'⏳ 20 min ETA buffer (QSR)',
+        batchGroupIdx:null,dispatchedAt:now-90000,
+      };
+      o.sla.stages[0].startAt=now-160000;o.sla.stages[0].completedAt=now-120000;o.sla.stages[0].actual=ri(10,20);o.sla.stages[0].status='done';
+      o.sla.stages[1].startAt=now-120000;o.sla.stages[1].completedAt=now-60000;o.sla.stages[1].actual=ri(10,20);o.sla.stages[1].status='done';
+      o.sla.stages[2].startAt=now-30000;o.sla.stages[2].status='active';
+      return o;
+    };
+    const po1=mkPreloadOrd(0),po2=mkPreloadOrd(1);
+    orders.unshift(po2);orders.unshift(po1);ordersToday+=2;lastHourOrders+=2;
+    const ptRev=(po1.comm+po1.fee)+(po2.comm+po2.fee);
+    const pt={
+      id:'TRIP-000',ordIds:[po1.id,po2.id],courierId:'cour_01',
+      color:TRIP_COLORS[0],startAt:now-90000,completedAt:null,status:'active',
+      waypoints:[
+        {lat:po1.dLat,lng:po1.dLng,type:'dropoff',ordId:po1.id,label:`Dropoff @ ${po1.addr}`},
+        {lat:po2.dLat,lng:po2.dLng,type:'dropoff',ordId:po2.id,label:`Dropoff @ ${po2.addr}`},
+      ],
+      waypointIdx:0,
+      revenue:Math.round(ptRev*100)/100,cost:COURIER_TRIP_COST,
+      profit:Math.round((ptRev-COURIER_TRIP_COST)*100)/100,
+    };
+    trips.push(pt);
+    const pc=couriers.find(c=>c.id==='cour_01');
+    if(pc){pc.status='delivering';pc.tripId='TRIP-000';pc.tLat=po1.dLat;pc.tLng=po1.dLng;pc.phase='trip';}
+  }
+  // Pre-seed queue with orders that guarantee a visible batch group on demo open
+  // Force 2 orders from McDonald's Kamppi + 1 from Hesburger Forum (all central Helsinki QSR)
+  const qseedStores=['merch_04','merch_04','merch_06','merch_09']; // 2x same merchant = guaranteed batch
+  qseedStores.forEach((storeId,i)=>{
+    const store=STORES.find(s=>s.id===storeId)||STORES[Math.floor(Math.random()*STORES.length)];
+    const addr=ADDRS[Math.floor(Math.random()*ADDRS.length)];
+    const items=MENUS[store.type]||MENUS.restaurant;
+    const item=items[Math.floor(Math.random()*items.length)];
+    const val=store.group==='qsr'?Math.round((11+Math.random()*20)*100)/100:Math.round((store.avgOrder*0.8+Math.random()*store.avgOrder*0.4)*100)/100;
+    const comm=Math.round(val*getMerchantSetting(store.id,'commission')*100)/100;
+    const fee=calcFee(store.group,val,getMerchantSetting(store.id,'freeDeliveryThreshold'),getMerchantSetting(store.id,'feeUnder'),getMerchantSetting(store.id,'feeOver'));
+    const dLat=store.lat+(Math.random()-.5)*0.04;
+    const dLng=store.lng+(Math.random()-.5)*0.06;
+    orderIdCtr++;
+    const isQSR=store.group==='qsr';
+    const qo={
+      id:`EB-${orderIdCtr}`,customerId:`cust_${ri(100,999)}`,
+      merchantId:store.id,storeName:store.name,storeEmoji:store.emoji,
+      storeType:store.type,storeGroup:store.group,
+      storeLat:store.lat,storeLng:store.lng,storePhone:randPhone(),
+      courierId:null,tripId:null,addr,item,val,comm,fee,
+      status:'PLACED',statusHistory:[{status:'PLACED',timestamp:Date.now()}],
+      createdAt:Date.now(),statusAt:Date.now(),
+      sla:buildSLA(PROMISED_ETAS[Math.floor(Math.random()*PROMISED_ETAS.length)]),
+      urgency:'green',fresh:false,dLat,dLng,
+      resolvedBy:null,resolvedAt:null,pausedUntil:null,
+      inQueue:true,queuedAt:Date.now()-(i*12000), // stagger: 0s,12s,24s,36s ago
+      batchWindowMs:isQSR?BATCH_WINDOW_QSR:BATCH_WINDOW_OTHER,
+      etaBufferLabel:isQSR?'⏳ 20 min ETA buffer (QSR)':'⏳ 30 min ETA buffer',
+      batchGroupIdx:null,dispatchedAt:null,
+    };
+    orderQueue.push(qo);
+  });
+  // Run initial batch grouping so queue tab shows colored groups immediately
+  formBatches(orderQueue);
+}
+
+// ══════════════════════════════════════════
+// BOOTSTRAP
+// ══════════════════════════════════════════
+function init(){
+  loadMerchantSettings();
+  initCouriers();preload();initMap();
+  setInterval(()=>{
+    tickOrders();moveCouriers();
+    updateTripPolylines();
+    renderDashboard();renderStats();renderFleet();renderOM();
+    if(selectedOrderId)renderOrderDetail(selectedOrderId);
+    updateClock();
+    if(orders.some(o=>o.urgency==='red'))showNotif('🔴 Critical SLA breach — check Order Management',true);
+  },2000);
+  // Fast tick for queue countdown display (1s)
+  setInterval(()=>{if(omView==='queue')renderQueue();},1000);
+  // Batch processing — check queue every 8s
+  setInterval(processBatchQueue,8000);
+  function sched(){setTimeout(()=>{newOrder();sched();},12000+Math.random()*10000);}sched();
+  setInterval(()=>lastHourOrders=0,3600000);
+  renderDashboard();renderStats();renderFleet();renderOM();renderFinancials();updateClock();
+}
+window.addEventListener('load',init);
+</script>
+</body>
+</html>

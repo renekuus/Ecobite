@@ -1,0 +1,1 @@
+-- TODO: implement migration 001_create_customers

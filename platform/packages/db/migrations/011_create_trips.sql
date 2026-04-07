@@ -1,0 +1,1 @@
+-- TODO: implement migration 011_create_trips
