@@ -36,6 +36,23 @@ export function getAccessToken(): string | null {
   return getCookie(COOKIE_AT);
 }
 
+/** Decode the JWT payload without verification — only for display purposes. */
+export function getActorFromToken(): { email: string; role: string; name: string } | null {
+  const token = getAccessToken();
+  if (!token) return null;
+  try {
+    const b64 = token.split('.')[1]!.replace(/-/g, '+').replace(/_/g, '/');
+    const payload = JSON.parse(atob(b64)) as Record<string, unknown>;
+    const email = typeof payload['email'] === 'string' ? payload['email'] : null;
+    const role  = typeof payload['role']  === 'string' ? payload['role']  : 'admin';
+    const name  = typeof payload['name']  === 'string' ? payload['name']  : '';
+    if (!email) return null;
+    return { email, role, name };
+  } catch {
+    return null;
+  }
+}
+
 export function setTokens(accessToken: string, refreshToken: string): void {
   setCookie(COOKIE_AT, accessToken,  14 * 60);       // 14 min (just under 15 min JWT TTL)
   setCookie(COOKIE_RT, refreshToken, 29 * 24 * 3600); // 29 days

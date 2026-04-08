@@ -31,6 +31,11 @@ export default function HomePage() {
     ? ((summary.deliveredOrders / Math.max(summary.totalOrders, 1)) * 100).toFixed(1)
     : null;
 
+  // Growth vs previous period — null when previous period has no data (hide indicator)
+  const gmvGrowthPct = summary && summary.previousPeriodGmvEur > 0
+    ? Math.round(((summary.totalGmvEur - summary.previousPeriodGmvEur) / summary.previousPeriodGmvEur) * 100)
+    : null;
+
   return (
     <div className="flex flex-col gap-8">
 
@@ -38,7 +43,10 @@ export default function HomePage() {
       <div className="flex items-start justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
-          <p className="text-sm text-gray-500 mt-1">
+          <p className="text-sm text-gray-500 mt-0.5">
+            Helsinki delivery network &nbsp;·&nbsp; live since March 2026
+          </p>
+          <p className="text-xs text-gray-400 mt-1">
             Last 30 days &nbsp;·&nbsp;
             <span className="font-mono">{PERIOD_FROM}</span>
             {' → '}
@@ -86,11 +94,23 @@ export default function HomePage() {
             value={summary.totalOrders.toLocaleString('fi-FI')}
             sub={`${summary.deliveredOrders.toLocaleString('fi-FI')} delivered · ${summary.cancelledOrders.toLocaleString('fi-FI')} cancelled`}
           />
-          <KpiCard
-            title="Gross Merchandise Value"
-            value={fmtEur(summary.totalGmvEur)}
-            sub="sum of all subtotals"
-          />
+          {/* GMV card — custom render to show growth indicator */}
+          <div className="rounded-xl border border-gray-200 bg-white p-5 flex flex-col gap-1">
+            <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">
+              Gross Merchandise Value
+            </p>
+            <p className="text-2xl font-semibold tabular-nums text-gray-900">
+              {fmtEur(summary.totalGmvEur)}
+            </p>
+            {gmvGrowthPct !== null ? (
+              <p className={`text-xs font-medium flex items-center gap-1 ${gmvGrowthPct >= 0 ? 'text-green-600' : 'text-red-500'}`}>
+                <span>{gmvGrowthPct >= 0 ? '↑' : '↓'}</span>
+                <span>{gmvGrowthPct >= 0 ? '+' : ''}{gmvGrowthPct}% vs previous period</span>
+              </p>
+            ) : (
+              <p className="text-xs text-gray-400">sum of all subtotals</p>
+            )}
+          </div>
           <KpiCard
             title="Gross Profit"
             value={fmtEur(summary.totalGrossProfitEur)}

@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { apiGet, apiPost, fmtEur, fmtDate, ApiError } from '@/lib/api';
 import type { OrdersResponse, OrderRow } from '@/lib/types';
 import StatusBadge from '@/components/StatusBadge';
@@ -32,10 +33,14 @@ const GROUP_COLOR: Record<string, string> = {
 // ─── Orders page ──────────────────────────────────────────────────────────────
 
 export default function OrdersPage() {
+  const searchParams   = useSearchParams();
+  // Accept ?status= from Live Ops drill-down navigation
+  const initialStatus  = searchParams.get('status') ?? '';
+
   const [data,         setData]         = useState<OrdersResponse | null>(null);
   const [loading,      setLoading]      = useState(true);
   const [error,        setError]        = useState<string | null>(null);
-  const [statusFilter, setStatusFilter] = useState('');
+  const [statusFilter, setStatusFilter] = useState(initialStatus);
   const [offset,       setOffset]       = useState(0);
   const [expanded,     setExpanded]     = useState<string | null>(null);
   const [actionBusy,   setActionBusy]   = useState<string | null>(null);  // orderId being actioned
@@ -54,7 +59,7 @@ export default function OrdersPage() {
       .finally(() => setLoading(false));
   }, []);
 
-  useEffect(() => { fetchOrders(statusFilter, offset); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { fetchOrders(initialStatus, 0); }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   function applyFilter(status: string) {
     setStatusFilter(status);

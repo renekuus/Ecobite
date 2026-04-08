@@ -77,6 +77,9 @@ export async function seedOrders(
 
   // ── Accumulate all rows in memory, then bulk-insert ──
 
+  // Capture wall-clock "now" once for consistent active-order timestamps
+  const NOW = new Date();
+
   const orderRows:      Record<string, unknown>[] = [];
   const itemRows:       Record<string, unknown>[] = [];
   const eventRows:      Record<string, unknown>[] = [];
@@ -133,7 +136,25 @@ export async function seedOrders(
       }
 
       // Timestamps
-      const placedAt = randomTimeOnDay(calDate, 10, 22, rng);
+      // Active orders use wall-clock relative times so the live view feels real.
+      // ~25% are placed 40–65 min ago with a 25–40 min ETA → naturally past ETA → delay signal.
+      // ~75% are placed 5–35 min ago with a 30–50 min ETA → still within window.
+      // Historical orders keep the original randomTimeOnDay distribution.
+      let placedAt: Date;
+      let urgency = 'green';
+
+      if (isToday) {
+        const isLate = rng() < 0.25;
+        if (isLate) {
+          placedAt = addMin(NOW, -randInt(40, 65, rng)); // old enough to be past ETA
+          urgency  = 'red';
+        } else {
+          placedAt = addMin(NOW, -randInt(5, 35, rng));  // recently placed, on track
+          urgency  = rng() < 0.20 ? 'yellow' : 'green';
+        }
+      } else {
+        placedAt = randomTimeOnDay(calDate, 10, 22, rng);
+      }
 
       let actualDeliveredAt: Date | null = null;
       let courierId: string | null = null;
@@ -171,7 +192,11 @@ export async function seedOrders(
       const dateStr     = yyyymmdd(calDate);
       const orderNumber = `EB-${dateStr}-${String(orderSeq++).padStart(4, '0')}`;
       const orderId     = randomUUID();
-      const estimatedAt = addMin(placedAt, randInt(35, 55, rng));
+      // Active orders get a tighter ETA window (25–45 min) matching real-world ops.
+      // The 25% that are "late" will have placedAt + ~32 min avg = already past NOW.
+      const estimatedAt = isToday
+        ? addMin(placedAt, randInt(25, 45, rng))
+        : addMin(placedAt, randInt(35, 55, rng));
 
       const addressSnap = {
         street:     customer.address.street,
@@ -199,7 +224,7 @@ export async function seedOrders(
         commission_eur:            commission,
         gross_profit_eur:          grossProfit,
         sla:                       JSON.stringify({ promisedEtaMin: 45, stages: [] }),
-        urgency:                   'green',
+        urgency,
         notes:                     null,
         cancellation_reason:       status === 'cancelled' ? 'Changed my mind' : null,
         estimated_delivery_at:     estimatedAt.toISOString(),

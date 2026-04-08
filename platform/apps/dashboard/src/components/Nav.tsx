@@ -2,7 +2,8 @@
 
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { logout } from '@/lib/auth';
+import { useEffect, useState } from 'react';
+import { logout, getActorFromToken } from '@/lib/auth';
 
 const LINKS = [
   { href: '/',       label: 'Dashboard',         icon: '📊' },
@@ -14,6 +15,12 @@ const LINKS = [
 export default function Nav() {
   const pathname = usePathname();
   const router   = useRouter();
+
+  const [actor, setActor] = useState<{ email: string; role: string } | null>(null);
+
+  useEffect(() => {
+    setActor(getActorFromToken());
+  }, []);
 
   // Hide nav entirely on login page
   if (pathname === '/login') return null;
@@ -30,7 +37,6 @@ export default function Nav() {
         <span className="text-sm font-bold text-brand-dark tracking-tight">
           🌿 EcoBite Ops
         </span>
-        <p className="text-[10px] text-gray-400 mt-0.5 font-mono">v2 dashboard</p>
       </div>
 
       {/* Nav links */}
@@ -54,11 +60,18 @@ export default function Nav() {
         })}
       </nav>
 
-      {/* Footer */}
-      <div className="p-4 border-t border-gray-100 flex flex-col gap-2">
-        <p className="text-[10px] text-gray-400 leading-relaxed">
-          API: {process.env['NEXT_PUBLIC_API_URL'] ?? 'localhost:3001'}
-        </p>
+      {/* Footer — user identity + sign out */}
+      <div className="p-4 border-t border-gray-100 flex flex-col gap-2.5">
+        {actor && (
+          <div className="flex flex-col gap-0.5">
+            <p className="text-[10px] font-medium text-gray-500 capitalize leading-none">
+              {actor.role}
+            </p>
+            <p className="text-[11px] text-gray-400 truncate leading-snug">
+              {actor.email}
+            </p>
+          </div>
+        )}
         <button
           onClick={handleLogout}
           className="flex items-center gap-2 text-[11px] text-gray-400 hover:text-gray-600 transition-colors text-left"

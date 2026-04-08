@@ -1,14 +1,15 @@
 // ─── Analytics ────────────────────────────────────────────────────────────────
 
 export interface SummaryResponse {
-  period:              { from: string; to: string };
-  totalOrders:         number;
-  deliveredOrders:     number;
-  cancelledOrders:     number;
-  totalGmvEur:         number;
-  totalCommissionEur:  number;
-  totalGrossProfitEur: number;
-  avgOrderValueEur:    number;
+  period:               { from: string; to: string };
+  totalOrders:          number;
+  deliveredOrders:      number;
+  cancelledOrders:      number;
+  totalGmvEur:          number;
+  previousPeriodGmvEur: number;   // GMV for the same-length period immediately before
+  totalCommissionEur:   number;
+  totalGrossProfitEur:  number;
+  avgOrderValueEur:     number;
 }
 
 export type SegMap = {
@@ -95,6 +96,15 @@ export interface OrdersResponse {
 
 // ─── Live ─────────────────────────────────────────────────────────────────────
 
+export interface TripStop {
+  seq:           number;
+  type:          'pickup' | 'dropoff';
+  merchant_name: string | null;
+  customer_name: string | null;
+  order_id:      string | null;
+  completed_at:  string | null;
+}
+
 export interface LiveOrder {
   id:                        string;
   order_number:              string;
@@ -106,10 +116,13 @@ export interface LiveOrder {
   customer_id:               string;
   customer_name:             string | null;
   courier_id:                string | null;
+  courier_name:              string | null;
+  trip_id:                   string | null;
   delivery_address_snapshot: DeliverySnapshot;
   subtotal_eur:              string;
   estimated_delivery_at:     string | null;
   created_at:                string;
+  delay_min:                 number | null;
 }
 
 export interface LiveCourier {
@@ -127,8 +140,17 @@ export interface LiveTrip {
   courier_name: string | null;
   status:       string;
   order_count:  number;
+  stop_count:   number;
+  is_batched:   boolean;
   created_at:   string;
   started_at:   string | null;
+  stops:        TripStop[];
+}
+
+export interface LiveInsight {
+  type:    'batching' | 'delay' | 'efficiency' | 'load';
+  icon:    string;
+  message: string;
 }
 
 export interface LiveSummary {
@@ -136,12 +158,15 @@ export interface LiveSummary {
   totalCouriers: number;
   onShift:       number;
   activeTrips:   number;
+  delayedOrders: number;
+  batchedTrips:  number;
 }
 
 export interface LiveResponse {
   activeOrders: LiveOrder[];
   couriers:     LiveCourier[];
   activeTrips:  LiveTrip[];
+  insights:     LiveInsight[];
   updatedAt:    string;
   summary:      LiveSummary;
 }
