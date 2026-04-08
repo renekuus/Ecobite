@@ -24,7 +24,7 @@ export interface MixDayPoint {
   segOrders: SegmentRecord;
   /** Sum of subtotal_eur per segment */
   segRevenue: SegmentRecord;
-  /** Sum of gross_profit_eur per segment */
+  /** Sum of contribution_profit_eur per segment (commission + fees − allocated courier cost) */
   segProfit: SegmentRecord;
 }
 
@@ -81,18 +81,38 @@ export async function getMixData(params: GetMixParams = {}): Promise<MixData> {
   const trunc = GRAN_TRUNC[gran];
 
   // Safe string interpolation — `trunc` comes from a whitelist above.
+  //
+  // Contribution profit = commission + delivery_fee + service_fee
+  //                       − (trip.courier_payout_eur / orders_in_trip)
+  //
+  // tc subquery counts all orders per trip so the full trip cost is spread
+  // evenly regardless of which orders fall inside the query window.
+  // Orders with no trip (active/pending) get 0 allocated courier cost.
   const rows = await query<MixRow>(
     `SELECT
-       DATE_TRUNC('${trunc}', created_at AT TIME ZONE 'Europe/Helsinki')::date AS bucket,
-       merchant_group,
-       COUNT(*)                                            AS order_count,
-       COALESCE(SUM(subtotal_eur),    0)::float8           AS revenue,
-       COALESCE(SUM(gross_profit_eur),0)::float8           AS profit
-     FROM orders
+       DATE_TRUNC('${trunc}', o.created_at AT TIME ZONE 'Europe/Helsinki')::date AS bucket,
+       o.merchant_group,
+       COUNT(*)                                                                   AS order_count,
+       COALESCE(SUM(o.subtotal_eur),    0)::float8                                AS revenue,
+       COALESCE(SUM(
+         o.commission_eur
+         + o.delivery_fee_eur
+         + o.service_fee_eur
+         - COALESCE(t.courier_payout_eur / NULLIF(tc.order_count, 0), 0)
+       ), 0)::float8                                                              AS profit
+     FROM orders o
+     LEFT JOIN trips t
+       ON t.id = o.trip_id
+     LEFT JOIN (
+       SELECT trip_id, COUNT(*)::float8 AS order_count
+       FROM   orders
+       WHERE  trip_id IS NOT NULL
+       GROUP  BY trip_id
+     ) tc ON tc.trip_id = o.trip_id
      WHERE
-       created_at >= $1::date::timestamptz
-       AND created_at <  ($2::date + INTERVAL '1 day')::timestamptz
-       AND status NOT IN ('cancelled','failed')
+       o.created_at >= $1::date::timestamptz
+       AND o.created_at <  ($2::date + INTERVAL '1 day')::timestamptz
+       AND o.status NOT IN ('cancelled','failed')
      GROUP BY 1, 2
      ORDER BY 1, 2`,
     [from, to],

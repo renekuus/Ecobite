@@ -30,6 +30,79 @@ const GROUP_COLOR: Record<string, string> = {
   other:      'bg-violet-100 text-violet-800',
 };
 
+// ─── Economic breakdown panel (shown in expanded row) ─────────────────────────
+
+function EconomicsPanel({ order }: { order: OrderRow }) {
+  const subtotal    = parseFloat(order.subtotal_eur);
+  const commission  = parseFloat(order.commission_eur);
+  const deliveryFee = parseFloat(order.delivery_fee_eur);
+  const serviceFee  = parseFloat(order.service_fee_eur);
+  const courierCost = order.allocated_courier_cost_eur;
+  const contrib     = order.contribution_profit_eur;
+  const tripCount   = order.trip_order_count;
+  const hasCourier  = courierCost > 0 || tripCount !== null;
+
+  const contribPositive = contrib >= 0;
+
+  return (
+    <div className="bg-white border border-gray-200 rounded-xl p-4 flex flex-col gap-3">
+      <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">
+        Order Economics
+      </p>
+
+      {/* Revenue stack */}
+      <div className="flex flex-col gap-1">
+        <div className="flex justify-between items-baseline text-xs">
+          <span className="text-gray-500">Basket (subtotal)</span>
+          <span className="tabular-nums text-gray-700">{fmtEur(subtotal)}</span>
+        </div>
+        <div className="flex justify-between items-baseline text-xs">
+          <span className="text-gray-500">Commission</span>
+          <span className="tabular-nums text-gray-700">+{fmtEur(commission)}</span>
+        </div>
+        {deliveryFee > 0 && (
+          <div className="flex justify-between items-baseline text-xs">
+            <span className="text-gray-500">Delivery fee</span>
+            <span className="tabular-nums text-gray-700">+{fmtEur(deliveryFee)}</span>
+          </div>
+        )}
+        {serviceFee > 0 && (
+          <div className="flex justify-between items-baseline text-xs">
+            <span className="text-gray-500">Service fee</span>
+            <span className="tabular-nums text-gray-700">+{fmtEur(serviceFee)}</span>
+          </div>
+        )}
+      </div>
+
+      {/* Courier cost */}
+      <div className="border-t border-gray-100 pt-2 flex flex-col gap-1">
+        <div className="flex justify-between items-baseline text-xs">
+          <span className="text-gray-500 flex items-center gap-1">
+            Courier cost
+            {hasCourier && tripCount !== null && (
+              <span className="text-[10px] text-gray-400">
+                (€20 ÷ {tripCount} order{tripCount !== 1 ? 's' : ''})
+              </span>
+            )}
+            {hasCourier && tripCount === null && (
+              <span className="text-[10px] text-gray-400">(no trip)</span>
+            )}
+          </span>
+          <span className="tabular-nums text-red-600">−{fmtEur(courierCost)}</span>
+        </div>
+      </div>
+
+      {/* Contribution profit */}
+      <div className={`border-t pt-2 flex justify-between items-baseline ${contribPositive ? 'border-green-100' : 'border-red-100'}`}>
+        <span className="text-xs font-semibold text-gray-700">Contribution profit</span>
+        <span className={`text-sm font-bold tabular-nums ${contribPositive ? 'text-green-700' : 'text-red-600'}`}>
+          {contribPositive ? '+' : ''}{fmtEur(contrib)}
+        </span>
+      </div>
+    </div>
+  );
+}
+
 // ─── Orders page ──────────────────────────────────────────────────────────────
 
 export default function OrdersPage() {
@@ -43,7 +116,7 @@ export default function OrdersPage() {
   const [statusFilter, setStatusFilter] = useState(initialStatus);
   const [offset,       setOffset]       = useState(0);
   const [expanded,     setExpanded]     = useState<string | null>(null);
-  const [actionBusy,   setActionBusy]   = useState<string | null>(null);  // orderId being actioned
+  const [actionBusy,   setActionBusy]   = useState<string | null>(null);
   const [actionError,  setActionError]  = useState<string | null>(null);
 
   const fetchOrders = useCallback((statusVal: string, off: number) => {
@@ -201,8 +274,13 @@ export default function OrdersPage() {
                 <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wide">Merchant</th>
                 <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wide">Customer</th>
                 <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wide">Status</th>
-                <th className="text-right px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wide">Total</th>
-                <th className="text-right px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wide">GP</th>
+                <th className="text-right px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wide">Basket</th>
+                <th
+                  className="text-right px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wide cursor-help"
+                  title="Commission + delivery fee + service fee − allocated courier cost. Expand row for full breakdown."
+                >
+                  Contribution
+                </th>
                 <th className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wide">Actions</th>
               </tr>
             </thead>
@@ -224,18 +302,15 @@ export default function OrdersPage() {
               )}
 
               {orders.map((order: OrderRow) => {
-                const subtotal    = parseFloat(order.subtotal_eur);
-                const deliveryFee = parseFloat(order.delivery_fee_eur);
-                const tip         = parseFloat(order.tip_eur);
-                const gp          = parseFloat(order.gross_profit_eur);
-                const total       = subtotal + deliveryFee + tip;
-                const isExpanded  = expanded === order.id;
-                const isBusy      = actionBusy === order.id;
-                const isTerminal  = TERMINAL.has(order.status);
-                const isFlagged   = order.urgency === 'red';
+                const subtotal   = parseFloat(order.subtotal_eur);
+                const contrib    = order.contribution_profit_eur;
+                const isExpanded = expanded === order.id;
+                const isBusy     = actionBusy === order.id;
+                const isTerminal = TERMINAL.has(order.status);
+                const isFlagged  = order.urgency === 'red';
 
                 return [
-                  // Main row
+                  // ── Main row ──
                   <tr
                     key={order.id}
                     className={`hover:bg-gray-50 cursor-pointer transition-colors ${isExpanded ? 'bg-green-50' : ''} ${isFlagged && !isExpanded ? 'border-l-2 border-red-400' : ''}`}
@@ -251,7 +326,6 @@ export default function OrdersPage() {
                     <td className="px-4 py-3 text-xs text-gray-600 whitespace-nowrap">
                       {fmtDate(order.created_at)}
                     </td>
-                    {/* Merchant name (from embedded object, fallback to group) */}
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-1.5">
                         <span className={`inline-flex text-xs font-medium px-1.5 py-0.5 rounded-full ${GROUP_COLOR[order.merchant_group] ?? 'bg-gray-100 text-gray-600'}`}>
@@ -262,23 +336,30 @@ export default function OrdersPage() {
                         )}
                       </div>
                     </td>
-                    {/* Customer name (from embedded object) */}
                     <td className="px-4 py-3 text-xs text-gray-600 max-w-[120px] truncate">
                       {order.customer?.name ?? '—'}
                     </td>
                     <td className="px-4 py-3">
                       <StatusBadge status={order.status} />
                     </td>
-                    <td className="px-4 py-3 text-right tabular-nums text-xs font-medium text-gray-800">
-                      {fmtEur(total)}
+                    {/* Basket subtotal */}
+                    <td className="px-4 py-3 text-right tabular-nums text-xs text-gray-600">
+                      {fmtEur(subtotal)}
                     </td>
-                    <td className="px-4 py-3 text-right tabular-nums text-xs text-green-700 font-medium">
-                      {fmtEur(gp)}
+                    {/* Contribution profit — green if positive, red if negative */}
+                    <td className="px-4 py-3 text-right tabular-nums text-xs font-semibold">
+                      <span className={contrib >= 0 ? 'text-green-700' : 'text-red-600'}>
+                        {contrib >= 0 ? '+' : ''}{fmtEur(contrib)}
+                      </span>
+                      {order.trip_order_count !== null && order.trip_order_count > 1 && (
+                        <span className="ml-1 text-[10px] font-normal text-violet-500" title={`Batched trip — ${order.trip_order_count} orders share courier cost`}>
+                          ✦{order.trip_order_count}
+                        </span>
+                      )}
                     </td>
                     {/* Action buttons */}
                     <td className="px-4 py-3" onClick={e => e.stopPropagation()}>
                       <div className="flex items-center gap-1.5">
-                        {/* Flag / Unflag */}
                         <button
                           onClick={() => handleFlag(order.id, order.urgency)}
                           disabled={isBusy}
@@ -291,7 +372,6 @@ export default function OrdersPage() {
                         >
                           {isBusy ? '…' : isFlagged ? '🚩 Unflag' : '🚩'}
                         </button>
-                        {/* Cancel */}
                         {!isTerminal && (
                           <button
                             onClick={() => handleCancel(order.id)}
@@ -306,65 +386,103 @@ export default function OrdersPage() {
                     </td>
                   </tr>,
 
-                  // Expand row
+                  // ── Expanded row ──
                   isExpanded && (
                     <tr key={`${order.id}-expand`} className="bg-green-50 border-b border-green-100">
-                      <td colSpan={9} className="px-6 py-4">
-                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-xs">
-                          <div>
-                            <p className="text-gray-400 uppercase tracking-wide font-medium mb-1">Order ID</p>
-                            <p className="font-mono text-gray-700 break-all">{order.id}</p>
+                      <td colSpan={9} className="px-6 py-5">
+                        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+
+                          {/* Economics panel */}
+                          <EconomicsPanel order={order} />
+
+                          {/* Order details */}
+                          <div className="bg-white border border-gray-200 rounded-xl p-4 flex flex-col gap-3 text-xs">
+                            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Order Details</p>
+                            <div className="flex flex-col gap-2">
+                              <div>
+                                <p className="text-gray-400 font-medium mb-0.5">Order ID</p>
+                                <p className="font-mono text-gray-700 break-all text-[11px]">{order.id}</p>
+                              </div>
+                              <div>
+                                <p className="text-gray-400 font-medium mb-0.5">Merchant</p>
+                                <p className="text-gray-700">{order.merchant?.name ?? '—'}</p>
+                                <p className="font-mono text-gray-400 text-[10px]">{order.merchant_id}</p>
+                              </div>
+                              <div>
+                                <p className="text-gray-400 font-medium mb-0.5">Customer</p>
+                                <p className="text-gray-700">{order.customer?.name ?? '—'}</p>
+                                {order.customer?.email && <p className="text-gray-400 text-[10px]">{order.customer.email}</p>}
+                                {order.customer?.phone && <p className="text-gray-400 text-[10px]">{order.customer.phone}</p>}
+                              </div>
+                              <div>
+                                <p className="text-gray-400 font-medium mb-0.5">Delivery address</p>
+                                <p className="text-gray-700">
+                                  {order.delivery_address_snapshot.street},{' '}
+                                  {order.delivery_address_snapshot.city}
+                                </p>
+                              </div>
+                              {order.actual_delivered_at && (
+                                <div>
+                                  <p className="text-gray-400 font-medium mb-0.5">Delivered at</p>
+                                  <p className="text-gray-700">{fmtDate(order.actual_delivered_at)}</p>
+                                </div>
+                              )}
+                              {order.cancellation_reason && (
+                                <div>
+                                  <p className="text-gray-400 font-medium mb-0.5">Cancellation reason</p>
+                                  <p className="text-gray-700">{order.cancellation_reason}</p>
+                                </div>
+                              )}
+                              {order.notes && (
+                                <div>
+                                  <p className="text-gray-400 font-medium mb-0.5">Notes</p>
+                                  <p className="text-gray-700">{order.notes}</p>
+                                </div>
+                              )}
+                            </div>
                           </div>
-                          <div>
-                            <p className="text-gray-400 uppercase tracking-wide font-medium mb-1">Merchant</p>
-                            <p className="text-gray-700">{order.merchant?.name ?? '—'}</p>
-                            <p className="font-mono text-gray-400 text-[10px] mt-0.5 break-all">{order.merchant_id}</p>
-                          </div>
-                          <div>
-                            <p className="text-gray-400 uppercase tracking-wide font-medium mb-1">Customer</p>
-                            <p className="text-gray-700">{order.customer?.name ?? '—'}</p>
-                            {order.customer?.email && (
-                              <p className="text-gray-400 text-[10px] mt-0.5">{order.customer.email}</p>
+
+                          {/* Trip details */}
+                          <div className="bg-white border border-gray-200 rounded-xl p-4 flex flex-col gap-3 text-xs">
+                            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Trip & Courier</p>
+                            {order.trip_id ? (
+                              <div className="flex flex-col gap-2">
+                                <div>
+                                  <p className="text-gray-400 font-medium mb-0.5">Trip ID</p>
+                                  <p className="font-mono text-gray-700 break-all text-[11px]">{order.trip_id}</p>
+                                </div>
+                                {order.trip_order_count !== null && (
+                                  <div>
+                                    <p className="text-gray-400 font-medium mb-0.5">Orders in trip</p>
+                                    <p className="text-gray-700 flex items-center gap-1.5">
+                                      {order.trip_order_count}
+                                      {order.trip_order_count > 1 && (
+                                        <span className="text-violet-600 font-semibold text-[10px] bg-violet-50 px-1.5 py-0.5 rounded-full">✦ BATCHED</span>
+                                      )}
+                                    </p>
+                                  </div>
+                                )}
+                                <div>
+                                  <p className="text-gray-400 font-medium mb-0.5">Courier cost allocation</p>
+                                  <p className="text-gray-700">
+                                    €20.00 ÷ {order.trip_order_count ?? '?'} = <span className="font-semibold text-red-600">{fmtEur(order.allocated_courier_cost_eur)}</span>
+                                  </p>
+                                </div>
+                                {order.courier_id && (
+                                  <div>
+                                    <p className="text-gray-400 font-medium mb-0.5">Courier ID</p>
+                                    <p className="font-mono text-gray-700 break-all text-[11px]">{order.courier_id}</p>
+                                  </div>
+                                )}
+                              </div>
+                            ) : (
+                              <div className="flex flex-col gap-2 text-gray-400">
+                                <p>No trip assigned yet.</p>
+                                <p className="text-[11px]">Courier cost will be allocated once the order is dispatched in a trip.</p>
+                              </div>
                             )}
-                            {order.customer?.phone && (
-                              <p className="text-gray-400 text-[10px]">{order.customer.phone}</p>
-                            )}
                           </div>
-                          <div>
-                            <p className="text-gray-400 uppercase tracking-wide font-medium mb-1">Delivery Address</p>
-                            <p className="text-gray-700">
-                              {order.delivery_address_snapshot.street}<br />
-                              {order.delivery_address_snapshot.city} {order.delivery_address_snapshot.postalCode}
-                            </p>
-                          </div>
-                          {order.trip_id && (
-                            <div>
-                              <p className="text-gray-400 uppercase tracking-wide font-medium mb-1">Trip</p>
-                              <p className="font-mono text-gray-700 break-all">{order.trip_id}</p>
-                            </div>
-                          )}
-                          {order.actual_delivered_at && (
-                            <div>
-                              <p className="text-gray-400 uppercase tracking-wide font-medium mb-1">Delivered At</p>
-                              <p className="text-gray-700">{fmtDate(order.actual_delivered_at)}</p>
-                            </div>
-                          )}
-                          {order.cancellation_reason && (
-                            <div>
-                              <p className="text-gray-400 uppercase tracking-wide font-medium mb-1">Cancellation</p>
-                              <p className="text-gray-700">{order.cancellation_reason}</p>
-                            </div>
-                          )}
-                          {order.notes && (
-                            <div>
-                              <p className="text-gray-400 uppercase tracking-wide font-medium mb-1">Notes</p>
-                              <p className="text-gray-700">{order.notes}</p>
-                            </div>
-                          )}
-                          <div>
-                            <p className="text-gray-400 uppercase tracking-wide font-medium mb-1">Commission</p>
-                            <p className="text-green-700 font-medium">{fmtEur(parseFloat(order.commission_eur))}</p>
-                          </div>
+
                         </div>
                       </td>
                     </tr>

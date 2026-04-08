@@ -5,13 +5,28 @@ import type { SeededMerchant } from './seedMerchants.js';
 import type { SeededCustomer } from './seedCustomers.js';
 import type { SeededCourier } from './seedCouriers.js';
 
-// ─── Constants (aligned with packages/shared/src/constants/pricing.ts) ───────
+// ─── Constants (aligned with index.html simulation economics) ────────────────
+//
+// Subtotal ranges mirror the simulation's per-group order value distributions.
+// Individual product prices are lower than basket values, so we override subtotal
+// with group-level draws.  Products remain in order_items for display only.
+//
+// Delivery fee mirrors simulation's calcFee() defaults:
+//   threshold: darkstore=€20, other=€30, qsr/restaurant=€25
+//   fee below: darkstore=€2.90, all others=€5.00
+//   fee above: €0 (no upper-tier fee — keeps Mix page math identical to sim)
 
 const COMMISSION_RATE: Record<string, number> = {
   qsr: 0.10, restaurant: 0.19, darkstore: 0.30, other: 0.115,
 };
 
-const DEFAULT_DELIVERY_FEE_EUR = 4.90;
+// Subtotal = AOV_MIN + rng() * AOV_RANGE  (uniform, matches simulation distribution)
+const AOV_MIN:   Record<string, number> = { darkstore: 15, qsr: 15, restaurant: 30, other: 20 };
+const AOV_RANGE: Record<string, number> = { darkstore: 65, qsr: 38, restaurant: 40, other: 60 };
+
+// Delivery fee tiers (simulation calcFee() defaults, group-keyed)
+const FEE_THRESHOLD: Record<string, number> = { darkstore: 20, qsr: 25, restaurant: 25, other: 30 };
+const FEE_UNDER:     Record<string, number> = { darkstore: 2.90, qsr: 5.00, restaurant: 5.00, other: 5.00 };
 
 // ─── Mix evolution (mirrors simulation logic exactly) ─────────────────────────
 // epoch: 2026-03-01; drift: QSR -5%/m, restaurant -2%/m, other -1%/m, darkstore = remainder
@@ -178,13 +193,14 @@ export async function seedOrders(
         pickedProducts.push({ product: products[idx]!, qty });
       }
 
-      let subtotal = 0;
-      pickedProducts.forEach(({ product, qty }) => { subtotal += product.price_eur * qty; });
-      subtotal = r2(subtotal);
+      // Subtotal — drawn from simulation's group AOV range.
+      // Products above remain in order_items for display; subtotal drives all economics.
+      const subtotal = r2((AOV_MIN[group] ?? 15) + rng() * (AOV_RANGE[group] ?? 40));
 
-      const deliveryFee = subtotal < merchant.free_delivery_threshold_eur
-        ? DEFAULT_DELIVERY_FEE_EUR
-        : 0;
+      // Delivery fee — simulation's calcFee() defaults (group-specific threshold + tier)
+      const deliveryFee = r2(
+        subtotal < (FEE_THRESHOLD[group] ?? 25) ? (FEE_UNDER[group] ?? 4.90) : 0,
+      );
       const commission  = r2(subtotal * merchant.commission_rate);
       const grossProfit = r2(commission + deliveryFee);
       const tipEur      = rng() < 0.18 ? r2(Math.floor(rng() * 4) + 1) : 0;

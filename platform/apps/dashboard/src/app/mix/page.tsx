@@ -112,9 +112,9 @@ export default function MixPage() {
             accent
           />
           <KpiCard
-            title="Blended Profit / Order"
+            title="Contribution Profit / Order"
             value={blendedProfitPerOrder ?? '—'}
-            sub="period average"
+            sub="after courier cost allocation"
           />
           <KpiCard
             title="QSR Share (latest)"

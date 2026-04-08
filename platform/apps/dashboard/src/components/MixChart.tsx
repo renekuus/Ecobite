@@ -171,7 +171,7 @@ export default function MixChart({ days, granularity }: MixChartProps) {
               <th className="text-right py-2 px-3 font-medium text-gray-500">Orders</th>
               <th className="text-right py-2 px-3 font-medium text-gray-500">Mix</th>
               <th className="text-right py-2 px-3 font-medium text-gray-500">Revenue</th>
-              <th className="text-right py-2 px-3 font-medium text-gray-500">Gross Profit</th>
+              <th className="text-right py-2 px-3 font-medium text-gray-500">Contribution Profit</th>
               <th className="text-right py-2 px-3 font-medium text-gray-500">Margin</th>
             </tr>
           </thead>

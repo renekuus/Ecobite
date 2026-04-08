@@ -7,9 +7,9 @@ export interface SummaryResponse {
   cancelledOrders:      number;
   totalGmvEur:          number;
   previousPeriodGmvEur: number;   // GMV for the same-length period immediately before
-  totalCommissionEur:   number;
-  totalGrossProfitEur:  number;
-  avgOrderValueEur:     number;
+  totalCommissionEur:         number;
+  totalContributionProfitEur: number;   // commission + fees − allocated courier cost
+  avgOrderValueEur:           number;
 }
 
 export type SegMap = {
@@ -25,7 +25,7 @@ export interface MixDayPoint {
   mix:         SegMap;   // fractions 0–1
   segOrders:   SegMap;
   segRevenue:  SegMap;
-  segProfit:   SegMap;
+  segProfit:   SegMap;   // contribution profit (commission + fees − allocated courier cost)
 }
 
 export interface MixResponse {
@@ -85,6 +85,10 @@ export interface OrderRow {
   // Embedded via JOIN
   merchant:  OrderMerchant | null;
   customer:  OrderCustomer | null;
+  // Trip economics — computed in API; 0/null when order has no trip yet
+  trip_order_count:           number | null;
+  allocated_courier_cost_eur: number;
+  contribution_profit_eur:    number;
 }
 
 export interface OrdersResponse {

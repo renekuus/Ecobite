@@ -115,28 +115,43 @@ export default async function analyticsRoutes(fastify: FastifyInstance): Promise
 
       const { query } = await import('../lib/db.js');
 
-      // Current period aggregation
+      // Current period aggregation.
+      // Contribution profit = commission + delivery_fee + service_fee
+      //                       − (trip.courier_payout_eur / orders_in_trip)
       const [row] = await query<{
         total_orders: string;
         delivered_orders: string;
         cancelled_orders: string;
         total_gmv: string;
         total_commission: string;
-        total_gross_profit: string;
+        total_contribution_profit: string;
         avg_order_value: string;
       }>(
         `SELECT
-           COUNT(*)                                             AS total_orders,
-           COUNT(*) FILTER (WHERE status = 'delivered')        AS delivered_orders,
-           COUNT(*) FILTER (WHERE status = 'cancelled')        AS cancelled_orders,
-           COALESCE(SUM(subtotal_eur),     0)::float8          AS total_gmv,
-           COALESCE(SUM(commission_eur),   0)::float8          AS total_commission,
-           COALESCE(SUM(gross_profit_eur), 0)::float8          AS total_gross_profit,
-           COALESCE(AVG(subtotal_eur) FILTER (WHERE status NOT IN ('cancelled','failed')), 0)::float8
-                                                               AS avg_order_value
-         FROM orders
-         WHERE created_at >= $1::date::timestamptz
-           AND created_at <  ($2::date + INTERVAL '1 day')::timestamptz`,
+           COUNT(*)                                                      AS total_orders,
+           COUNT(*) FILTER (WHERE o.status = 'delivered')               AS delivered_orders,
+           COUNT(*) FILTER (WHERE o.status = 'cancelled')               AS cancelled_orders,
+           COALESCE(SUM(o.subtotal_eur),   0)::float8                   AS total_gmv,
+           COALESCE(SUM(o.commission_eur), 0)::float8                   AS total_commission,
+           COALESCE(SUM(
+             o.commission_eur
+             + o.delivery_fee_eur
+             + o.service_fee_eur
+             - COALESCE(t.courier_payout_eur / NULLIF(tc.order_count, 0), 0)
+           ), 0)::float8                                                 AS total_contribution_profit,
+           COALESCE(AVG(o.subtotal_eur) FILTER (WHERE o.status NOT IN ('cancelled','failed')), 0)::float8
+                                                                        AS avg_order_value
+         FROM orders o
+         LEFT JOIN trips t
+           ON t.id = o.trip_id
+         LEFT JOIN (
+           SELECT trip_id, COUNT(*)::float8 AS order_count
+           FROM   orders
+           WHERE  trip_id IS NOT NULL
+           GROUP  BY trip_id
+         ) tc ON tc.trip_id = o.trip_id
+         WHERE o.created_at >= $1::date::timestamptz
+           AND o.created_at <  ($2::date + INTERVAL '1 day')::timestamptz`,
         [from, to],
       );
 
@@ -158,8 +173,8 @@ export default async function analyticsRoutes(fastify: FastifyInstance): Promise
         cancelledOrders:     parseInt(row.cancelled_orders, 10),
         totalGmvEur:         Math.round(parseFloat(row.total_gmv) * 100) / 100,
         previousPeriodGmvEur: Math.round(parseFloat(prevRow?.prev_gmv ?? '0') * 100) / 100,
-        totalCommissionEur:  Math.round(parseFloat(row.total_commission) * 100) / 100,
-        totalGrossProfitEur: Math.round(parseFloat(row.total_gross_profit) * 100) / 100,
+        totalCommissionEur:       Math.round(parseFloat(row.total_commission) * 100) / 100,
+        totalContributionProfitEur: Math.round(parseFloat(row.total_contribution_profit) * 100) / 100,
         avgOrderValueEur:    Math.round(parseFloat(row.avg_order_value) * 100) / 100,
       });
     },

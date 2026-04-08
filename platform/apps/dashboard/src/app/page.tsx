@@ -112,9 +112,9 @@ export default function HomePage() {
             )}
           </div>
           <KpiCard
-            title="Gross Profit"
-            value={fmtEur(summary.totalGrossProfitEur)}
-            sub={`${summary.totalGmvEur > 0 ? ((summary.totalGrossProfitEur / summary.totalGmvEur) * 100).toFixed(1) : 0}% margin`}
+            title="Contribution Profit"
+            value={fmtEur(summary.totalContributionProfitEur)}
+            sub={`${summary.totalGmvEur > 0 ? ((summary.totalContributionProfitEur / summary.totalGmvEur) * 100).toFixed(1) : 0}% margin`}
             accent
           />
           <KpiCard

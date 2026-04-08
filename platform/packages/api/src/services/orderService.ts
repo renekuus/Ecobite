@@ -45,6 +45,10 @@ export interface OrderRow {
   // Embedded via JOIN — null if related row was deleted
   merchant:  OrderMerchant | null;
   customer:  OrderCustomer | null;
+  // Trip economics — null when order has no trip yet
+  trip_order_count:           number | null;
+  allocated_courier_cost_eur: number;   // courier_payout / orders_in_trip (0 if no trip)
+  contribution_profit_eur:    number;   // commission + fees − allocated_courier_cost
 }
 
 export interface ListOrdersParams {
@@ -79,12 +83,25 @@ const ORDER_SELECT = `
     'name',  c.name,
     'email', c.email,
     'phone', c.phone
-  ) AS customer
+  ) AS customer,
+  tc.order_count::int                                                           AS trip_order_count,
+  COALESCE(t.courier_payout_eur / NULLIF(tc.order_count, 0), 0)::float8        AS allocated_courier_cost_eur,
+  (o.commission_eur + o.delivery_fee_eur + o.service_fee_eur
+   - COALESCE(t.courier_payout_eur / NULLIF(tc.order_count, 0), 0))::float8    AS contribution_profit_eur
 `;
 
+// tc counts ALL orders per trip (not just those in the current query window)
+// so courier cost is always split by the true trip size, not by filter results.
 const ORDER_JOINS = `
   LEFT JOIN merchants m ON m.id = o.merchant_id
   LEFT JOIN customers c ON c.id = o.customer_id
+  LEFT JOIN trips t ON t.id = o.trip_id
+  LEFT JOIN (
+    SELECT trip_id, COUNT(*)::float8 AS order_count
+    FROM   orders
+    WHERE  trip_id IS NOT NULL
+    GROUP  BY trip_id
+  ) tc ON tc.trip_id = o.trip_id
 `;
 
 // ─── List ─────────────────────────────────────────────────────────────────────
